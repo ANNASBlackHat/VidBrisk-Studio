@@ -1,0 +1,212 @@
+/**
+ * Type definitions matching Video Generation Pipeline Backend schemas and Timeline JSON shapes.
+ */
+
+export type JobStage =
+  | "cleaning"
+  | "structuring"
+  | "voicing"
+  | "aligning"
+  | "resolving_footage"
+  | "assembling"
+  | "compiling"
+  | "done"
+  | "failed";
+
+export type JobStatus =
+  | "pending"
+  | "in_progress"
+  | "awaiting_approval"
+  | "complete"
+  | "failed";
+
+export type TargetOrientation = "horizontal" | "vertical" | "square" | "any";
+
+export type BeatType = "narrative" | "stat" | "abstract";
+
+export interface Beat {
+  id: string;
+  text: string;
+  visual_intent: string;
+  beat_type: BeatType;
+}
+
+export interface WordTiming {
+  word: string;
+  start: number;
+  end: number;
+  score?: number;
+}
+
+export interface BeatTiming {
+  beat_id?: string;
+  start: number;
+  end: number;
+  duration: number;
+  words?: WordTiming[];
+}
+
+export interface VoiceClip {
+  beat_id: string;
+  audio_path: string;
+  duration_sec: number;
+  sample_rate?: number;
+}
+
+export interface FootageCandidate {
+  chunk_id: string;
+  media_id?: string;
+  score?: number;
+  similarity?: number;
+  source_in: number;
+  source_out: number;
+  duration: number;
+  storage_path?: string;
+  storage_url?: string;
+  thumbnail_url?: string;
+  asset_type?: "video" | "image" | "motion";
+  tags?: string[];
+}
+
+export interface AssetPlanItem {
+  type?: "video" | "image" | "text_card" | "motion";
+  chunk_id?: string;
+  assetId?: string;
+  source_in?: number;
+  source_out?: number;
+  sourceIn?: number;
+  sourceOut?: number;
+  track_start?: number;
+  track_end?: number;
+  trackStart?: number;
+  trackEnd?: number;
+  storage_path?: string;
+  storage_url?: string;
+  content?: string;
+  style?: string;
+}
+
+export interface AssetPlan {
+  beat_id?: string;
+  strategy: "single_clip" | "concat_clips" | "image_kenburns" | "motion_text" | string;
+  items: AssetPlanItem[];
+}
+
+export interface VideoTrackItem {
+  id: string;
+  trackStart: number;
+  trackEnd: number;
+  assetType: "video" | "image" | "motion";
+  assetId?: string;
+  sourceIn?: number;
+  sourceOut?: number;
+  storagePath?: string;
+  storageUrl?: string;
+  componentId?: string;
+  props?: Record<string, unknown>;
+  rawContent?: string;
+  style?: string;
+}
+
+export interface TextTrackItem {
+  id: string;
+  trackStart: number;
+  trackEnd: number;
+  content: string;
+  style?: string;
+}
+
+export interface AudioTrackItem {
+  id: string;
+  trackStart: number;
+  trackEnd: number;
+  assetId: string;
+}
+
+export type TrackItem = VideoTrackItem | TextTrackItem | AudioTrackItem;
+
+export interface Track {
+  type: "video" | "text" | "audio";
+  items: (VideoTrackItem | TextTrackItem | AudioTrackItem)[];
+}
+
+export interface TimelineJSON {
+  tracks: Track[];
+  total_duration: number;
+  metadata?: {
+    job_id?: string;
+    beat_count?: number;
+    footage_candidates?: Record<string, FootageCandidate[]>;
+    resolved_beats?: Array<{
+      beat: Beat;
+      voice_clip?: VoiceClip;
+      timings?: WordTiming[];
+      candidates?: FootageCandidate[];
+    }>;
+  };
+}
+
+export interface JobCreateRequest {
+  raw_input: string;
+  tts_provider?: "kokoro" | "chatterbox" | "mock" | string;
+  aligner_provider?: "easytranscriber" | "whisperx" | "mock" | string;
+  target_orientation?: TargetOrientation;
+  auto_approve?: boolean;
+  single_pass_llm?: boolean;
+}
+
+export interface JobApprovalRequest {
+  action: "approve" | "reject";
+  beats_override?: Beat[];
+  candidates_override?: Record<string, FootageCandidate[]>;
+}
+
+export interface JobSummaryResponse {
+  id: string;
+  stage: JobStage;
+  status: JobStatus;
+  tts_provider: string;
+  aligner_provider: string;
+  target_orientation: TargetOrientation;
+  auto_approve: boolean;
+  created_at: string;
+  updated_at: string;
+  error_message?: string | null;
+}
+
+export interface JobResponse {
+  id: string;
+  raw_input: string;
+  stage: JobStage;
+  status: JobStatus;
+  tts_provider: string;
+  aligner_provider: string;
+  target_orientation: TargetOrientation;
+  auto_approve: boolean;
+  single_pass_llm: boolean;
+  clean_script?: string | null;
+  beats?: Beat[] | null;
+  voice_clips?: VoiceClip[] | null;
+  timings?: Record<string, BeatTiming> | null;
+  footage_candidates?: Record<string, FootageCandidate[]> | null;
+  asset_plan?: AssetPlan[] | null;
+  timeline?: TimelineJSON | null;
+  error_message?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export const STAGE_CONFIGS: {
+  key: JobStage;
+  label: string;
+  description: string;
+  stepNumber: number;
+}[] = [
+  { key: "cleaning", label: "Script Cleaning", description: "Stripping visual directions & non-narration text", stepNumber: 1 },
+  { key: "structuring", label: "Beat Structuring", description: "Segmenting narration into beats & visual intent", stepNumber: 2 },
+  { key: "voicing", label: "Voice Synthesis", description: "Generating voiceover audio per beat", stepNumber: 3 },
+  { key: "aligning", label: "Timestamp Alignment", description: "Computing word & beat-level timestamps", stepNumber: 4 },
+  { key: "resolving_footage", label: "Footage Resolution", description: "Searching and ranking footage chunks", stepNumber: 5 },
+  { key: "assembling", label: "Assembly & Gap-Filling", description: "Applying duration matching & fallbacks", stepNumber: 6 },
+  { key: "compiling", label: "Timeline Compilation", description: "Compiling tracks and motion components", stepNumber: 7 },
+];

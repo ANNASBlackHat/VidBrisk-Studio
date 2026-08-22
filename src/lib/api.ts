@@ -1,0 +1,179 @@
+import {
+  JobApprovalRequest,
+  JobCreateRequest,
+  JobResponse,
+  JobSummaryResponse,
+  TimelineJSON,
+} from "./types";
+
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") || "http://localhost:8000";
+
+export class ApiError extends Error {
+  status: number;
+  data: unknown;
+
+  constructor(message: string, status: number, data?: unknown) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.data = data;
+  }
+}
+
+async function request<T>(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const url = `${API_BASE_URL}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`;
+
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+    ...options.headers,
+  };
+
+  const config: RequestInit = {
+    ...options,
+    headers,
+  };
+
+  try {
+    const res = await fetch(url, config);
+
+    if (!res.ok) {
+      let errorBody: unknown = null;
+      try {
+        errorBody = await res.json();
+      } catch {
+        errorBody = await res.text();
+      }
+      
+      let message = `Request failed with status ${res.status}`;
+      if (typeof errorBody === "object" && errorBody !== null && "detail" in errorBody) {
+        message = String((errorBody as { detail: unknown }).detail);
+      } else if (typeof errorBody === "string" && errorBody.length > 0) {
+        message = errorBody;
+      }
+      
+      throw new ApiError(message, res.status, errorBody);
+    }
+
+    return (await res.json()) as T;
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    throw new ApiError(
+      error instanceof Error ? error.message : "Network error or server unreachable",
+      0
+    );
+  }
+}
+
+export const api = {
+  /**
+   * List video generation jobs with optional filters
+   */
+  async getJobs(params?: {
+    limit?: number;
+    offset?: number;
+    stage?: string;
+    status?: string;
+  }): Promise<JobSummaryResponse[]> {
+    const query = new URLSearchParams();
+    if (params?.limit) query.set("limit", params.limit.toString());
+    if (params?.offset) query.set("offset", params.offset.toString());
+    if (params?.stage) query.set("stage", params.stage);
+    if (params?.status) query.set("status", params.status);
+
+    const queryString = query.toString();
+    return request<JobSummaryResponse[]>(
+      `/jobs${queryString ? `?${queryString}` : ""}`
+    );
+  },
+
+  /**
+   * Get full details of a specific job
+   */
+  async getJob(jobId: string): Promise<JobResponse> {
+    return request<JobResponse>(`/jobs/${jobId}`);
+  },
+
+  /**
+   * Submit a new video generation job
+   */
+  async createJob(payload: JobCreateRequest): Promise<JobResponse> {
+    return request<JobResponse>("/jobs", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  /**
+   * Fetch compiled timeline JSON for Remotion/Editor
+   */
+  async getTimeline(jobId: string): Promise<TimelineJSON> {
+    return request<TimelineJSON>(`/jobs/${jobId}/timeline`);
+  },
+
+  /**
+   * Approve a human-in-the-loop checkpoint or submit overrides
+   */
+  async approveJob(
+    jobId: string,
+    payload: JobApprovalRequest
+  ): Promise<JobResponse> {
+    return request<JobResponse>(`/jobs/${jobId}/approve`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  /**
+   * Retry a failed job from its last checkpoint
+   */
+  async retryJob(jobId: string): Promise<JobResponse> {
+    return request<JobResponse>(`/jobs/${jobId}/retry`, {
+      method: "POST",
+    });
+  },
+
+  /**
+   * Cancel an active or pending job
+   */
+  async cancelJob(jobId: string): Promise<JobResponse> {
+    return request<JobResponse>(`/jobs/${jobId}/cancel`, {
+      method: "POST",
+    });
+  },
+
+  /**
+   * Render timeline to standalone MP4 via FFmpeg engine
+   */
+  async renderVideo(
+    jobId: string,
+    payload: { timeline?: TimelineJSON },
+    params?: { width?: number; height?: number; fps?: number }
+  ): Promise<{ status: string; video_url: string; filename: string; width: number; height: number; fps: number }> {
+    const query = new URLSearchParams();
+    if (params?.width) query.set("width", params.width.toString());
+    if (params?.height) query.set("height", params.height.toString());
+    if (params?.fps) query.set("fps", params.fps.toString());
+
+    const qs = query.toString();
+    return request<{ status: string; video_url: string; filename: string; width: number; height: number; fps: number }>(
+      `/jobs/${jobId}/render${qs ? `?${qs}` : ""}`,
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }
+    );
+  },
+
+  /**
+   * Check backend health
+   */
+  async getHealth(): Promise<{ status: string; service: string }> {
+    return request<{ status: string; service: string }>("/health");
+  },
+};

@@ -57,25 +57,31 @@ export async function POST(request: NextRequest) {
     const scriptPath = path.join(process.cwd(), "scripts", "render_video.mjs");
 
     await new Promise<void>((resolve, reject) => {
-      execFile(
+      const child = execFile(
         "node",
         [scriptPath, "--state", statePath, "--out", outputPath],
-        { maxBuffer: 1024 * 1024 * 50 },
-        (error, stdout, stderr) => {
-          // Cleanup temp state
-          try {
-            if (fs.existsSync(statePath)) fs.unlinkSync(statePath);
-          } catch {}
-
-          if (error) {
-            console.error("Remotion render script error:", stderr || error.message);
-            reject(new Error(stderr || error.message));
-          } else {
-            console.log("Remotion render script output:", stdout);
-            resolve();
-          }
-        }
+        { maxBuffer: 1024 * 1024 * 50 }
       );
+
+      child.stdout?.on("data", (data) => {
+        process.stdout.write(data.toString());
+      });
+
+      child.stderr?.on("data", (data) => {
+        process.stderr.write(data.toString());
+      });
+
+      child.on("close", (code) => {
+        try {
+          if (fs.existsSync(statePath)) fs.unlinkSync(statePath);
+        } catch {}
+
+        if (code === 0) {
+          resolve();
+        } else {
+          reject(new Error(`Remotion renderer exited with code ${code}`));
+        }
+      });
     });
 
     const videoUrl = `/renders/${filename}`;

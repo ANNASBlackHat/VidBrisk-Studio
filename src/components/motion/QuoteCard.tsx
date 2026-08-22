@@ -8,19 +8,24 @@ export interface QuoteCardProps {
   author?: string | null;
   durationInFrames?: number;
   text?: string;
+  mode?: "overlay" | "takeover";
+  display_mode?: "overlay" | "takeover";
 }
 
 export function QuoteCard({
   quote,
   emphasis,
-  author = "Apollo 11 Overview",
+  author = "Historic Transmission",
   durationInFrames,
   text,
+  mode,
+  display_mode,
 }: QuoteCardProps) {
-  const content = quote || text || "The impossible is only what hasn't been done yet.";
+  const content = quote || text || "That's one small step for man... one giant leap for mankind.";
   const frame = useCurrentFrame();
   const videoConfig = useVideoConfig();
   const fps = videoConfig.fps;
+  const effectiveMode = display_mode || mode || "overlay";
 
   const totalFrames = Math.max(
     30,
@@ -33,7 +38,7 @@ export function QuoteCard({
   const entranceSpring = spring({
     frame,
     fps,
-    config: { damping: 14, mass: 0.6, stiffness: 90 },
+    config: { damping: 14, mass: 0.6, stiffness: 95 },
   });
 
   const entranceOpacity = interpolate(frame, [0, Math.max(1, entranceEnd)], [0, 1], {
@@ -46,7 +51,7 @@ export function QuoteCard({
     extrapolateRight: "clamp",
   });
 
-  // Soft exit (last ~12% of duration)
+  // Soft exit
   const exitProgress = interpolate(frame, [exitStart, totalFrames], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
@@ -60,67 +65,214 @@ export function QuoteCard({
   const scale = entranceSpring * exitScale;
   const translateY = entranceTranslateY + exitTranslateY;
 
-  const pulse = Math.sin((frame * Math.PI * 2) / 80);
-  const glow = 0.35 + Math.sin((frame * Math.PI * 2) / 60) * 0.08;
+  // Frame-driven audio waveform bars
+  const barsCount = 20;
 
-  // Highlight the emphasized phrase if present
+  // Highlight emphasized text
   const renderFormattedQuote = () => {
-    if (!emphasis || !content.includes(emphasis)) {
+    if (!emphasis || !content.toLowerCase().includes(emphasis.toLowerCase())) {
       return <span>&ldquo;{content}&rdquo;</span>;
     }
 
-    const parts = content.split(emphasis);
+    const regex = new RegExp(`(${emphasis})`, "i");
+    const parts = content.split(regex);
     return (
       <span>
-        &ldquo;{parts[0]}
-        <span className="text-purple-400 font-bold underline decoration-purple-500/60 decoration-2 underline-offset-8">
-          {emphasis}
-        </span>
-        {parts.slice(1).join(emphasis)}&rdquo;
+        &ldquo;
+        {parts.map((part, i) =>
+          part.toLowerCase() === emphasis.toLowerCase() ? (
+            <span
+              key={i}
+              style={{
+                color: "#38bdf8",
+                fontWeight: "bold",
+                textShadow: "0 0 20px rgba(56, 189, 248, 0.6)",
+              }}
+            >
+              {part}
+            </span>
+          ) : (
+            <span key={i}>{part}</span>
+          )
+        )}
+        &rdquo;
       </span>
     );
   };
 
+  // ---------------------------------------------------------------------------
+  // OVERLAY MODE (Lower-Third docked over Footage)
+  // ---------------------------------------------------------------------------
+  if (effectiveMode === "overlay") {
+    return (
+      <AbsoluteFill style={{ pointerEvents: "none", overflow: "hidden" }}>
+        <div
+          style={{
+            position: "absolute",
+            bottom: 50,
+            left: 64,
+            maxWidth: 720,
+            width: "calc(100% - 128px)",
+            opacity,
+            scale: `${scale}`,
+            translate: `0px ${translateY}px`,
+            transformOrigin: "bottom left",
+            backgroundColor: "rgba(10, 15, 29, 0.84)",
+            backdropFilter: "blur(20px)",
+            borderRadius: 24,
+            borderLeft: "6px solid #f59e0b",
+            border: "1px solid rgba(245, 158, 11, 0.35)",
+            boxShadow: "0 25px 60px -15px rgba(0, 0, 0, 0.8), 0 0 35px rgba(245, 158, 11, 0.15)",
+            padding: "24px 32px",
+            color: "#ffffff",
+          }}
+        >
+          {/* Top Audio Oscilloscope & Transmission Badge */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div
+                style={{
+                  padding: "4px 12px",
+                  borderRadius: 6,
+                  backgroundColor: "rgba(245, 158, 11, 0.2)",
+                  border: "1px solid rgba(245, 158, 11, 0.5)",
+                  fontSize: 11,
+                  fontFamily: "monospace",
+                  fontWeight: "bold",
+                  letterSpacing: 2,
+                  color: "#f59e0b",
+                }}
+              >
+                LIVE TRANSMISSION
+              </div>
+              {author && (
+                <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: 1.5, color: "#94a3b8" }}>
+                  — {author.toUpperCase()}
+                </div>
+              )}
+            </div>
+
+            {/* Audio Waveform Oscilloscope */}
+            <div style={{ display: "flex", alignItems: "center", gap: 3, height: 24 }}>
+              {Array.from({ length: barsCount }).map((_, idx) => {
+                const wave = Math.sin(frame * 0.25 + idx * 0.4);
+                const barH = Math.max(4, Math.abs(wave) * 20);
+                return (
+                  <div
+                    key={idx}
+                    style={{
+                      width: 3,
+                      height: `${barH}px`,
+                      borderRadius: 2,
+                      backgroundColor: "#f59e0b",
+                      opacity: 0.8,
+                    }}
+                  />
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Quote Body */}
+          <blockquote
+            style={{
+              fontSize: 24,
+              fontWeight: 700,
+              fontStyle: "italic",
+              lineHeight: 1.4,
+              color: "#f8fafc",
+            }}
+          >
+            {renderFormattedQuote()}
+          </blockquote>
+        </div>
+      </AbsoluteFill>
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // TAKEOVER MODE (Full-Screen Hero Quote)
+  // ---------------------------------------------------------------------------
   return (
     <AbsoluteFill
       style={{
-        backgroundColor: "#060913",
+        backgroundColor: "#030712",
         justifyContent: "center",
         alignItems: "center",
         overflow: "hidden",
       }}
     >
-      {/* Background Radial Glow */}
       <div
-        className="absolute w-[600px] h-[600px] rounded-full blur-[140px] pointer-events-none"
         style={{
-          background: "radial-gradient(circle, #9333ea 0%, rgba(147, 51, 234, 0.3) 40%, transparent 70%)",
-          opacity: glow,
-          transform: `scale(${1 + pulse * 0.03})`,
+          position: "absolute",
+          width: 700,
+          height: 700,
+          borderRadius: "50%",
+          background: "radial-gradient(circle, rgba(245, 158, 11, 0.2) 0%, rgba(147, 51, 234, 0.1) 45%, transparent 70%)",
+          filter: "blur(90px)",
+          pointerEvents: "none",
         }}
       />
 
-      {/* Main Glassmorphic Quote Card */}
       <div
         style={{
-          transform: `scale(${scale}) translateY(${translateY}px)`,
           opacity,
+          scale: `${scale}`,
+          translate: `0px ${translateY}px`,
+          position: "relative",
+          zIndex: 10,
+          maxWidth: 900,
+          width: "90%",
+          padding: "48px 56px",
+          borderRadius: 32,
+          backgroundColor: "rgba(15, 23, 42, 0.85)",
+          border: "1px solid rgba(245, 158, 11, 0.3)",
+          boxShadow: "0 30px 80px rgba(0, 0, 0, 0.7), 0 0 50px rgba(245, 158, 11, 0.15)",
+          backdropFilter: "blur(24px)",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          textAlign: "center",
         }}
-        className="relative z-10 max-w-3xl w-full mx-8 p-10 sm:p-14 rounded-3xl bg-slate-900/80 border border-purple-500/30 shadow-[0_0_80px_rgba(147,51,234,0.25)] backdrop-blur-2xl flex flex-col items-center text-center"
       >
-        <div className="p-3.5 rounded-full bg-purple-950/90 border border-purple-700/80 text-purple-400 mb-8 shadow-inner">
-          <Quote className="w-7 h-7" />
+        <div
+          style={{
+            padding: 16,
+            borderRadius: "50%",
+            backgroundColor: "rgba(245, 158, 11, 0.15)",
+            border: "1px solid rgba(245, 158, 11, 0.4)",
+            color: "#f59e0b",
+            marginBottom: 24,
+          }}
+        >
+          <Quote size={28} />
         </div>
 
-        <blockquote className="text-2xl sm:text-3xl md:text-4xl font-semibold text-slate-100 font-sans leading-relaxed tracking-tight">
+        <blockquote
+          style={{
+            fontSize: 34,
+            fontWeight: 700,
+            lineHeight: 1.4,
+            color: "#ffffff",
+            fontStyle: "italic",
+          }}
+        >
           {renderFormattedQuote()}
         </blockquote>
 
         {author && (
-          <div className="mt-8 flex items-center gap-3 text-xs sm:text-sm uppercase tracking-widest text-purple-300 font-mono">
-            <span className="w-8 h-px bg-purple-500/80" />
-            <span>{author}</span>
-            <span className="w-8 h-px bg-purple-500/80" />
+          <div
+            style={{
+              marginTop: 24,
+              fontSize: 14,
+              fontFamily: "monospace",
+              fontWeight: 700,
+              letterSpacing: 3,
+              color: "#f59e0b",
+              textTransform: "uppercase",
+            }}
+          >
+            — {author}
           </div>
         )}
       </div>

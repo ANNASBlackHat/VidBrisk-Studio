@@ -29,6 +29,7 @@ export interface Beat {
   text: string;
   visual_intent: string;
   beat_type: BeatType;
+  motion_props?: Record<string, unknown> | null;
 }
 
 export interface WordTiming {
@@ -84,6 +85,8 @@ export interface AssetPlanItem {
   storage_url?: string;
   content?: string;
   style?: string;
+  component_id?: string;
+  props?: Record<string, unknown>;
 }
 
 export interface AssetPlan {
@@ -114,6 +117,8 @@ export interface TextTrackItem {
   trackEnd: number;
   content: string;
   style?: string;
+  componentId?: string;
+  props?: Record<string, unknown>;
 }
 
 export interface AudioTrackItem {

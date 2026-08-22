@@ -1,5 +1,5 @@
 import React from "react";
-import { interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 
 export interface SplitScreenProps {
   leftTitle?: string;
@@ -8,19 +8,24 @@ export interface SplitScreenProps {
   rightContent?: string;
   durationInFrames?: number;
   text?: string;
+  mode?: "overlay" | "takeover";
+  display_mode?: "overlay" | "takeover";
 }
 
 export function SplitScreen({
-  leftTitle = "Concept A",
-  leftContent = "High precision, automated execution",
-  rightTitle = "Concept B",
-  rightContent = "Human verified, custom polished",
+  leftTitle = "TRADITIONAL COST",
+  leftContent = "Multi-day manual editing and animation cycles.",
+  rightTitle = "REMOTION AUTOMATION",
+  rightContent = "Deterministic, programmatic render in under 60 seconds.",
   durationInFrames,
   text,
+  mode,
+  display_mode,
 }: SplitScreenProps) {
   const frame = useCurrentFrame();
   const videoConfig = useVideoConfig();
   const fps = videoConfig.fps;
+  const effectiveMode = display_mode || mode || "overlay";
 
   const totalFrames = Math.max(
     30,
@@ -30,13 +35,13 @@ export function SplitScreen({
   const leftSlide = spring({
     frame,
     fps,
-    config: { damping: 14, mass: 0.6, stiffness: 90 },
+    config: { damping: 14, mass: 0.6, stiffness: 95 },
   });
 
   const rightSlide = spring({
     frame: Math.max(0, frame - 5),
     fps,
-    config: { damping: 14, mass: 0.6, stiffness: 90 },
+    config: { damping: 14, mass: 0.6, stiffness: 95 },
   });
 
   const exitStart = Math.floor(totalFrames * 0.88);
@@ -49,26 +54,54 @@ export function SplitScreen({
   const exitScale = interpolate(exitProgress, [0, 1], [1, 0.94]);
 
   return (
-    <div className="absolute inset-0 flex items-center justify-center p-8 bg-[#090d16]/90 backdrop-blur-md overflow-hidden">
+    <AbsoluteFill
+      style={{
+        backgroundColor: effectiveMode === "takeover" ? "#030712" : "transparent",
+        justifyContent: "center",
+        alignItems: "center",
+        overflow: "hidden",
+        padding: "0 64px",
+      }}
+    >
       <div
         style={{
-          transform: `scale(${exitScale})`,
+          scale: `${exitScale}`,
           opacity: exitOpacity,
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 32,
+          maxWidth: 1100,
+          width: "100%",
+          zIndex: 10,
         }}
-        className="relative z-10 max-w-4xl w-full grid grid-cols-1 md:grid-cols-2 gap-6"
       >
         {/* Left Pane */}
         <div
           style={{
-            transform: `translateX(${(1 - leftSlide) * -50}px)`,
+            translate: `${(1 - leftSlide) * -40}px 0`,
             opacity: leftSlide,
+            padding: "36px 40px",
+            borderRadius: 24,
+            backgroundColor: "rgba(15, 23, 42, 0.84)",
+            backdropFilter: "blur(20px)",
+            border: "1px solid rgba(148, 163, 184, 0.25)",
+            boxShadow: "0 20px 50px rgba(0,0,0,0.6)",
+            color: "#ffffff",
           }}
-          className="p-8 rounded-3xl bg-slate-900/90 border border-blue-900/60 shadow-xl shadow-blue-950/30 flex flex-col justify-center text-center"
         >
-          <span className="text-xs font-mono font-bold uppercase tracking-widest text-blue-400 mb-2">
-            {leftTitle}
-          </span>
-          <p className="text-base sm:text-lg font-semibold text-slate-100 font-sans">
+          <div
+            style={{
+              fontSize: 12,
+              fontFamily: "monospace",
+              fontWeight: 700,
+              letterSpacing: 2,
+              color: "#94a3b8",
+              marginBottom: 12,
+            }}
+          >
+            {leftTitle.toUpperCase()}
+          </div>
+          <p style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.4, color: "#f1f5f9", margin: 0 }}>
             {leftContent}
           </p>
         </div>
@@ -76,19 +109,34 @@ export function SplitScreen({
         {/* Right Pane */}
         <div
           style={{
-            transform: `translateX(${(1 - rightSlide) * 50}px)`,
+            translate: `${(1 - rightSlide) * 40}px 0`,
             opacity: rightSlide,
+            padding: "36px 40px",
+            borderRadius: 24,
+            backgroundColor: "rgba(15, 23, 42, 0.84)",
+            backdropFilter: "blur(20px)",
+            border: "1px solid rgba(56, 189, 248, 0.4)",
+            boxShadow: "0 20px 50px rgba(0,0,0,0.6), 0 0 30px rgba(56, 189, 248, 0.15)",
+            color: "#ffffff",
           }}
-          className="p-8 rounded-3xl bg-slate-900/90 border border-purple-900/60 shadow-xl shadow-purple-950/30 flex flex-col justify-center text-center"
         >
-          <span className="text-xs font-mono font-bold uppercase tracking-widest text-purple-400 mb-2">
-            {rightTitle}
-          </span>
-          <p className="text-base sm:text-lg font-semibold text-slate-100 font-sans">
+          <div
+            style={{
+              fontSize: 12,
+              fontFamily: "monospace",
+              fontWeight: 700,
+              letterSpacing: 2,
+              color: "#38bdf8",
+              marginBottom: 12,
+            }}
+          >
+            {rightTitle.toUpperCase()}
+          </div>
+          <p style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.4, color: "#f8fafc", margin: 0 }}>
             {text || rightContent}
           </p>
         </div>
       </div>
-    </div>
+    </AbsoluteFill>
   );
 }

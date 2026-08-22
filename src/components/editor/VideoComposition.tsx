@@ -5,6 +5,8 @@ import {
   Video,
   Audio,
   useVideoConfig,
+  useCurrentFrame,
+  interpolate,
 } from "remotion";
 import { EditorProjectState, EditorClip } from "@/adapters/timelineToEditorState";
 import { getMotionComponent } from "@/components/motion/registry";
@@ -13,6 +15,33 @@ import { resolveMediaUrl } from "@/lib/utils";
 export interface VideoCompositionProps {
   projectState: EditorProjectState;
 }
+
+const FootageClip: React.FC<{
+  resolvedUrl: string;
+  startFromFrames: number;
+  durationFrames: number;
+}> = ({ resolvedUrl, startFromFrames, durationFrames }) => {
+  const frame = useCurrentFrame();
+  const scale = interpolate(frame, [0, durationFrames], [1.0, 1.05], {
+    extrapolateRight: "clamp",
+  });
+
+  return (
+    <AbsoluteFill style={{ backgroundColor: "#000000", overflow: "hidden" }}>
+      <Video
+        src={resolvedUrl}
+        startFrom={startFromFrames}
+        style={{
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          scale: `${scale}`,
+        }}
+        volume={0} // Mute raw footage audio to give full clarity to Voiceover
+      />
+    </AbsoluteFill>
+  );
+};
 
 export function VideoComposition({ projectState }: VideoCompositionProps) {
   const { fps } = useVideoConfig();
@@ -76,14 +105,11 @@ export function VideoComposition({ projectState }: VideoCompositionProps) {
         durationInFrames={durationFrames}
         name={item.id}
       >
-        <AbsoluteFill style={{ backgroundColor: "#000000", overflow: "hidden" }}>
-          <Video
-            src={resolvedUrl}
-            startFrom={startFromFrames}
-            style={{ width: "100%", height: "100%", objectFit: "cover" }}
-            volume={0} // Mute raw footage audio to give full clarity to Voiceover
-          />
-        </AbsoluteFill>
+        <FootageClip
+          resolvedUrl={resolvedUrl}
+          startFromFrames={startFromFrames}
+          durationFrames={durationFrames}
+        />
       </Sequence>
     );
   };

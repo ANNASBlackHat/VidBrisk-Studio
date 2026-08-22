@@ -136,40 +136,46 @@ export function timelineToEditorState(
           !hasOverlappingVideo ||
           item.style === "stat-callout" ||
           item.style === "abstract-card" ||
-          item.id.includes("motion");
+          item.id.includes("motion") ||
+          Boolean(item.componentId);
 
         if (isMotionCard) {
           // Promote to Motion Component in visual track
-          let componentId = "DataAnimations/StatCard";
-          let props: Record<string, unknown> = {};
-
-          if (
+          const componentId = item.componentId || (
             item.style === "stat-callout" ||
             item.content?.includes("$") ||
             item.content?.includes("%") ||
             /\d+/.test(item.content || "")
-          ) {
-            componentId = "DataAnimations/StatCard";
+              ? "DataAnimations/StatCard"
+              : "TextAnimations/QuoteCard"
+          );
+
+          let props: Record<string, unknown> = {
+            ...(item.props || {}),
+            mode: hasOverlappingVideo ? "overlay" : "takeover",
+            durationInFrames: Math.max(30, Math.round(dur * fps)),
+          };
+
+          if (componentId === "DataAnimations/StatCard") {
             const match = item.content?.match(
               /(\$?\d+(?:\.\d+)?\s*(?:billion|million|thousand|percent|%|k|m|b)?|\d+%)/i
             );
-            const val = match ? match[1].toUpperCase() : "$25 BILLION";
+            const val = match ? match[1].toUpperCase() : "$25.4B";
             const isPercent = val.includes("%") || (item.content || "").toLowerCase().includes("percent");
             props = {
-              value: val,
-              label: isPercent ? "Budget Allocation Share" : "Apollo Project Investment",
-              visualType: isPercent ? "ring" : "bar",
-              durationInFrames: Math.max(30, Math.round(dur * fps)),
+              primary_value: val,
+              kicker: isPercent ? "BUDGET ALLOCATION SHARE" : "PROGRAM INVESTMENT",
+              visual_type: isPercent ? "ring" : "chart",
               subtext: item.content,
-              themeColor: "#3b82f6",
+              themeColor: "#38bdf8",
+              ...props,
             };
-          } else {
-            componentId = "TextAnimations/QuoteCard";
+          } else if (componentId === "TextAnimations/QuoteCard") {
             props = {
               quote: item.content,
               emphasis: "the impossible was within reach",
-              author: "Apollo 11 Retrospective",
-              durationInFrames: Math.max(30, Math.round(dur * fps)),
+              author: "Historic Transmission",
+              ...props,
             };
           }
 

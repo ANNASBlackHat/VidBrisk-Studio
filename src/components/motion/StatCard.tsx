@@ -1,61 +1,90 @@
 import React from "react";
-import { AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
-import { Sparkles, TrendingUp, Activity, PieChart } from "lucide-react";
+import { AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig, Easing } from "remotion";
+import { Sparkles, TrendingUp, Activity, PieChart, BarChart3, ShieldCheck } from "lucide-react";
 
 export interface StatCardProps {
   value?: string;
+  primary_value?: string;
   label?: string;
-  visualType?: "ring" | "bar";
+  kicker?: string;
+  visualType?: "chart" | "ring" | "bar" | "hud";
+  visual_type?: "chart" | "ring" | "bar" | "hud";
   durationInFrames?: number;
   subtext?: string | null;
   themeColor?: string;
+  theme?: string;
   text?: string;
+  mode?: "overlay" | "takeover" | "adaptive";
+  display_mode?: "overlay" | "takeover";
+  secondaryMetric?: { value: string; label: string };
+  secondary_metric?: { value: string; label: string };
+  chartData?: Array<{ label: string; value: number; highlight?: boolean }>;
 }
 
 export function StatCard({
   value,
-  label = "Statistical Highlight",
+  primary_value,
+  label,
+  kicker,
   visualType,
+  visual_type,
   durationInFrames,
-  subtext = "Representing key metrics and project scale",
-  themeColor = "#3b82f6",
+  subtext,
+  themeColor = "#38bdf8",
   text,
+  mode,
+  display_mode,
+  secondaryMetric,
+  secondary_metric,
+  chartData,
 }: StatCardProps) {
   const frame = useCurrentFrame();
   const videoConfig = useVideoConfig();
   const fps = videoConfig.fps;
 
-  // Determine total assigned duration in frames
   const totalFrames = Math.max(
     30,
     durationInFrames || videoConfig.durationInFrames || 150
   );
 
-  // If value is missing, extract from text (e.g. "$25B" or "4%" or "25 BILLION")
-  const extracted = text?.match(
-    /(\$?\d+(?:\.\d+)?\s*(?:billion|million|thousand|percent|%|k|m|b)?|\d+%)/i
-  )?.[0];
-  const rawValue = (value || extracted || "$25B").toUpperCase();
+  // Unify props from backend or frontend
+  const rawValue = (primary_value || value || text?.match(/(\$?\d+(?:\.\d+)?\s*(?:billion|million|thousand|percent|%|k|m|b)?|\d+%)/i)?.[0] || "$25.4B").toUpperCase();
+  const rawKicker = kicker || label || "STATISTICAL HIGHLIGHT";
+  const rawSubtext = subtext || text || "Representing key metrics and historic scale";
+  const effectiveMode = display_mode || mode || "overlay";
+  const effectiveSecondary = secondary_metric || secondaryMetric;
 
-  const rawLabel = label || text?.slice(0, 45) || "Statistical Highlight";
-
-  // Infer visualType if not explicitly passed ("ring" for percentages/ratios, "bar" for values/currencies)
-  const effectiveVisualType: "ring" | "bar" =
+  // Determine visual type
+  const effectiveVisualType: "chart" | "ring" | "bar" | "hud" =
+    visual_type ||
     visualType ||
-    (rawValue.includes("%") || rawLabel.toLowerCase().includes("percent") || rawLabel.toLowerCase().includes("share")
+    (rawValue.includes("%") || rawKicker.toLowerCase().includes("percent") || rawKicker.toLowerCase().includes("share")
       ? "ring"
+      : rawValue.includes("B") || rawValue.includes("$") || rawValue.includes("M")
+      ? "chart"
       : "bar");
 
   // Parse numeric part for animated counter
   const numMatch = rawValue.match(/(\d+(?:\.\d+)?)/);
-  const targetNum = numMatch ? parseFloat(numMatch[1]) : 25;
+  const targetNum = numMatch ? parseFloat(numMatch[1]) : 25.4;
   const prefix = rawValue.startsWith("$") ? "$" : "";
   const suffix = rawValue.replace(/^\$/, "").replace(/^[\d.]+/, "").trim();
 
-  // Parse target ratio for visual metaphor (e.g., 75% -> 0.75, or scaled to [0.15, 0.9])
+  // Target ratio for ring or bar
   const targetRatio = rawValue.includes("%")
     ? Math.min(1, Math.max(0.05, targetNum / 100))
-    : 0.78;
+    : 0.85;
+
+  // Default multi-bar chart data if visualType === 'chart'
+  const defaultBars = [
+    { label: "'61", value: 18, highlight: false },
+    { label: "'63", value: 42, highlight: false },
+    { label: "'65", value: 75, highlight: false },
+    { label: "'66", value: 100, highlight: true }, // Peak
+    { label: "'68", value: 65, highlight: false },
+    { label: "'69", value: 58, highlight: false },
+  ];
+  const bars = chartData && chartData.length > 0 ? chartData : defaultBars;
 
   // --- Choreography Phase Timing ---
   const entranceEnd = Math.floor(totalFrames * 0.15);
@@ -65,11 +94,11 @@ export function StatCard({
   const visualEnd = Math.floor(totalFrames * 0.58);
   const exitStart = Math.floor(totalFrames * 0.88);
 
-  // 1. Entrance Animation (Spring + Interpolation)
+  // 1. Entrance Spring
   const entranceSpring = spring({
     frame,
     fps,
-    config: { damping: 14, mass: 0.6, stiffness: 90 },
+    config: { damping: 14, mass: 0.6, stiffness: 95 },
   });
 
   const entranceOpacity = interpolate(frame, [0, Math.max(1, entranceEnd)], [0, 1], {
@@ -77,12 +106,12 @@ export function StatCard({
     extrapolateRight: "clamp",
   });
 
-  const entranceTranslateY = interpolate(frame, [0, Math.max(1, entranceEnd)], [28, 0], {
+  const entranceTranslateY = interpolate(frame, [0, Math.max(1, entranceEnd)], [30, 0], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
 
-  // 2. Soft Exit Animation (last ~12% of duration)
+  // 2. Soft Exit
   const exitProgress = interpolate(frame, [exitStart, totalFrames], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
@@ -92,178 +121,381 @@ export function StatCard({
   const exitScale = interpolate(exitProgress, [0, 1], [1, 0.94]);
   const exitTranslateY = interpolate(exitProgress, [0, 1], [0, -15]);
 
-  // Overall card transform & opacity combining entrance and soft exit
   const cardOpacity = entranceOpacity * exitOpacity;
   const cardScale = entranceSpring * exitScale;
   const cardTranslateY = entranceTranslateY + exitTranslateY;
 
-  // 3. Count-up Animation across first ~50% duration with smooth ease-out
+  // 3. Count-up Animation
   const countProgress = interpolate(frame, [countStart, countEnd], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
-    easing: (t) => 1 - Math.pow(1 - t, 3), // cubic ease-out
+    easing: Easing.bezier(0.16, 1, 0.3, 1),
   });
 
-  const currentCount = Math.floor(countProgress * targetNum);
+  const currentCount = (countProgress * targetNum).toFixed(targetNum % 1 !== 0 ? 1 : 0);
   const formattedValue = numMatch
     ? `${prefix}${currentCount}${suffix ? ` ${suffix}` : ""}`
     : rawValue;
 
-  // 4. Secondary Visual Metaphor Animation (Radial Ring or Ascending Bar)
+  // 4. Progress Metaphor Animation
   const metaphorProgress = interpolate(frame, [visualStart, visualEnd], [0, targetRatio], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
-    easing: (t) => 1 - Math.pow(1 - t, 2.5),
+    easing: Easing.bezier(0.16, 1, 0.3, 1),
   });
 
-  // 5. Continuous Frame-driven Ambient Motion (pure mathematical oscillation, zero CSS keyframes)
+  // 5. Pure mathematical frame-driven ambient oscillation
   const pulse = Math.sin((frame * Math.PI * 2) / 90);
-  const subtleGlow = 0.35 + Math.sin((frame * Math.PI * 2) / 60) * 0.08;
-  const iconPulse = 0.85 + Math.sin((frame * Math.PI * 2) / 45) * 0.15;
+  const subtleGlow = 0.4 + Math.sin((frame * Math.PI * 2) / 60) * 0.1;
 
-  // Ring circumference for SVG circle (r = 44)
-  const ringRadius = 44;
+  // SVG Ring calculation
+  const ringRadius = 42;
   const ringCircumference = 2 * Math.PI * ringRadius;
   const ringStrokeOffset = ringCircumference * (1 - metaphorProgress);
 
+  // ---------------------------------------------------------------------------
+  // OVERLAY MODE (Lower-Third / Side-Docked over Footage)
+  // ---------------------------------------------------------------------------
+  if (effectiveMode === "overlay") {
+    return (
+      <AbsoluteFill style={{ pointerEvents: "none", overflow: "hidden" }}>
+        {/* Docked Card in Lower Third / Left Quadrant */}
+        <div
+          style={{
+            position: "absolute",
+            bottom: 54,
+            left: 64,
+            maxWidth: 680,
+            width: "calc(100% - 128px)",
+            opacity: cardOpacity,
+            scale: `${cardScale}`,
+            translate: `0px ${cardTranslateY}px`,
+            transformOrigin: "bottom left",
+            backgroundColor: "rgba(10, 15, 29, 0.82)",
+            backdropFilter: "blur(20px)",
+            borderRadius: 24,
+            border: "1px solid rgba(56, 189, 248, 0.35)",
+            boxShadow: "0 25px 60px -15px rgba(0, 0, 0, 0.8), 0 0 40px rgba(56, 189, 248, 0.15)",
+            padding: "24px 32px",
+            color: "#ffffff",
+          }}
+        >
+          {/* Top Kicker Badge */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "4px 14px",
+                borderRadius: 9999,
+                backgroundColor: "rgba(15, 23, 42, 0.8)",
+                border: "1px solid rgba(56, 189, 248, 0.4)",
+                fontSize: 12,
+                fontFamily: "monospace",
+                fontWeight: 700,
+                letterSpacing: 2,
+                color: "#38bdf8",
+              }}
+            >
+              <span
+                style={{
+                  width: 7,
+                  height: 7,
+                  borderRadius: "50%",
+                  backgroundColor: "#38bdf8",
+                  boxShadow: "0 0 8px #38bdf8",
+                }}
+              />
+              {rawKicker}
+            </div>
+
+            {effectiveSecondary && (
+              <div style={{ fontSize: 13, color: "#94a3b8", display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ fontWeight: "bold", color: "#f59e0b" }}>{effectiveSecondary.value}</span>
+                <span>{effectiveSecondary.label}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Core Stat & Secondary Chart row */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 24 }}>
+            <div>
+              <div
+                style={{
+                  fontSize: 58,
+                  fontWeight: 900,
+                  fontFamily: "system-ui, -apple-system, sans-serif",
+                  letterSpacing: -1.5,
+                  lineHeight: 1.05,
+                  background: "linear-gradient(90deg, #ffffff 0%, #e0f2fe 50%, #38bdf8 100%)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  filter: "drop-shadow(0 0 25px rgba(56, 189, 248, 0.4))",
+                }}
+              >
+                {formattedValue}
+              </div>
+
+              {rawSubtext && (
+                <div style={{ fontSize: 15, color: "#cbd5e1", marginTop: 8, lineHeight: 1.4, maxWidth: 440 }}>
+                  {rawSubtext}
+                </div>
+              )}
+            </div>
+
+            {/* Visual Metaphor on right of card */}
+            {effectiveVisualType === "ring" ? (
+              <div style={{ position: "relative", width: 100, height: 100, flexShrink: 0 }}>
+                <svg width="100" height="100" viewBox="0 0 100 100">
+                  <circle cx="50" cy="50" r={ringRadius} stroke="rgba(51, 65, 85, 0.8)" strokeWidth="8" fill="none" />
+                  <circle
+                    cx="50"
+                    cy="50"
+                    r={ringRadius}
+                    stroke="#38bdf8"
+                    strokeWidth="8"
+                    strokeDasharray={ringCircumference}
+                    strokeDashoffset={ringStrokeOffset}
+                    strokeLinecap="round"
+                    fill="none"
+                    transform="rotate(-90 50 50)"
+                    style={{ filter: "drop-shadow(0 0 8px rgba(56, 189, 248, 0.6))" }}
+                  />
+                </svg>
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 18,
+                    fontWeight: "bold",
+                    color: "#38bdf8",
+                  }}
+                >
+                  {Math.round(metaphorProgress * 100)}%
+                </div>
+              </div>
+            ) : effectiveVisualType === "chart" ? (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "flex-end",
+                  gap: 8,
+                  height: 70,
+                  padding: "6px 12px",
+                  backgroundColor: "rgba(15, 23, 42, 0.6)",
+                  borderRadius: 12,
+                  border: "1px solid rgba(148, 163, 184, 0.2)",
+                  flexShrink: 0,
+                }}
+              >
+                {bars.map((bar, idx) => {
+                  const barAnim = interpolate(frame, [visualStart + idx * 4, visualEnd + idx * 4], [0, bar.value], {
+                    extrapolateLeft: "clamp",
+                    extrapolateRight: "clamp",
+                    easing: Easing.bezier(0.16, 1, 0.3, 1),
+                  });
+                  return (
+                    <div key={bar.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 22 }}>
+                      <div
+                        style={{
+                          width: 14,
+                          height: `${barAnim * 0.45}px`,
+                          borderRadius: "3px 3px 0 0",
+                          background: bar.highlight
+                            ? "linear-gradient(180deg, #f59e0b 0%, #d97706 100%)"
+                            : "linear-gradient(180deg, #38bdf8 0%, #1e40af 100%)",
+                          boxShadow: bar.highlight ? "0 0 10px rgba(245,158,11,0.6)" : "0 0 6px rgba(56,189,248,0.4)",
+                        }}
+                      />
+                      <span style={{ fontSize: 10, color: "#94a3b8", marginTop: 4 }}>{bar.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div style={{ width: 140, flexShrink: 0 }}>
+                <div style={{ height: 8, backgroundColor: "rgba(30, 41, 59, 0.8)", borderRadius: 9999, overflow: "hidden" }}>
+                  <div
+                    style={{
+                      height: "100%",
+                      width: `${metaphorProgress * 100}%`,
+                      background: "linear-gradient(90deg, #38bdf8 0%, #06b6d4 100%)",
+                      boxShadow: "0 0 10px #38bdf8",
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </AbsoluteFill>
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // TAKEOVER MODE (Full-Screen Hero Infographic)
+  // ---------------------------------------------------------------------------
   return (
     <AbsoluteFill
       style={{
-        backgroundColor: "#060913",
+        backgroundColor: "#030712",
         justifyContent: "center",
         alignItems: "center",
         overflow: "hidden",
       }}
     >
-      {/* Background Grid Pattern */}
+      {/* Background Blueprint Grid */}
       <div
-        className="absolute inset-0 opacity-15 pointer-events-none"
         style={{
+          position: "absolute",
+          inset: 0,
           backgroundImage:
-            "linear-gradient(to right, #3b82f6 1px, transparent 1px), linear-gradient(to bottom, #3b82f6 1px, transparent 1px)",
+            "linear-gradient(to right, rgba(56, 189, 248, 0.07) 1px, transparent 1px), linear-gradient(to bottom, rgba(56, 189, 248, 0.07) 1px, transparent 1px)",
           backgroundSize: "60px 60px",
+          pointerEvents: "none",
         }}
       />
 
-      {/* Dynamic Radial Glow Orbs (Frame-interpolated) */}
+      {/* Dynamic Radial Ambient Glow */}
       <div
-        className="absolute w-[650px] h-[650px] rounded-full blur-[140px] pointer-events-none"
         style={{
-          background: `radial-gradient(circle, ${themeColor} 0%, rgba(99, 102, 241, 0.4) 40%, transparent 70%)`,
+          position: "absolute",
+          width: 750,
+          height: 750,
+          borderRadius: "50%",
+          background: `radial-gradient(circle, rgba(56, 189, 248, 0.25) 0%, rgba(30, 58, 138, 0.15) 50%, transparent 75%)`,
           opacity: subtleGlow,
-          transform: `scale(${1 + pulse * 0.03})`,
-        }}
-      />
-      <div
-        className="absolute w-[350px] h-[350px] rounded-full blur-[100px] pointer-events-none"
-        style={{
-          background: "radial-gradient(circle, #06b6d4 0%, transparent 70%)",
-          opacity: 0.25 + pulse * 0.05,
-          transform: `translate(${pulse * 8}px, ${-pulse * 8}px)`,
+          scale: `${1 + pulse * 0.04}`,
+          filter: "blur(90px)",
+          pointerEvents: "none",
         }}
       />
 
       {/* Main Glassmorphic Hero Card */}
       <div
         style={{
-          transform: `scale(${cardScale}) translateY(${cardTranslateY}px)`,
           opacity: cardOpacity,
+          scale: `${cardScale}`,
+          translate: `0px ${cardTranslateY}px`,
+          position: "relative",
+          zIndex: 10,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          textAlign: "center",
+          maxWidth: 920,
+          width: "90%",
+          padding: "48px 56px",
+          borderRadius: 32,
+          backgroundColor: "rgba(15, 23, 42, 0.85)",
+          border: "1px solid rgba(56, 189, 248, 0.35)",
+          boxShadow: "0 30px 80px rgba(0, 0, 0, 0.7), 0 0 50px rgba(56, 189, 248, 0.2)",
+          backdropFilter: "blur(24px)",
         }}
-        className="relative z-10 flex flex-col items-center text-center max-w-2xl w-full mx-6 p-8 sm:p-12 rounded-3xl bg-slate-900/85 border border-blue-500/30 shadow-[0_0_80px_rgba(59,130,246,0.22)] backdrop-blur-2xl"
       >
-        {/* Top Tagline Badge */}
-        <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-950/90 border border-blue-700/60 text-blue-300 text-xs sm:text-sm font-mono uppercase tracking-widest mb-4 shadow-inner">
-          {effectiveVisualType === "ring" ? (
-            <PieChart className="w-4 h-4 text-cyan-400" />
-          ) : (
-            <TrendingUp className="w-4 h-4 text-blue-400" />
-          )}
-          <span>{rawLabel}</span>
+        {/* Kicker Badge */}
+        <div
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 10,
+            padding: "6px 18px",
+            borderRadius: 9999,
+            backgroundColor: "rgba(30, 41, 59, 0.9)",
+            border: "1px solid rgba(56, 189, 248, 0.4)",
+            fontSize: 13,
+            fontFamily: "monospace",
+            fontWeight: 700,
+            letterSpacing: 3,
+            color: "#38bdf8",
+            marginBottom: 20,
+          }}
+        >
+          {effectiveVisualType === "ring" ? <PieChart size={16} /> : <TrendingUp size={16} />}
+          <span>{rawKicker}</span>
         </div>
 
-        {/* Central Display: Count-Up Stat + Secondary Visual Metaphor */}
-        <div className="flex flex-col items-center justify-center w-full my-2">
-          {effectiveVisualType === "ring" ? (
-            <div className="relative flex items-center justify-center my-2">
-              {/* Radial Progress Ring SVG */}
-              <svg width="210" height="210" className="rotate-[-90deg]">
-                <circle
-                  cx="105"
-                  cy="105"
-                  r={ringRadius}
-                  stroke="rgba(30, 41, 59, 0.7)"
-                  strokeWidth="8"
-                  fill="transparent"
-                />
-                <circle
-                  cx="105"
-                  cy="105"
-                  r={ringRadius}
-                  stroke="url(#ringGradient)"
-                  strokeWidth="9"
-                  strokeDasharray={ringCircumference}
-                  strokeDashoffset={ringStrokeOffset}
-                  strokeLinecap="round"
-                  fill="transparent"
-                  style={{
-                    filter: "drop-shadow(0 0 8px rgba(6, 182, 212, 0.6))",
-                  }}
-                />
-                <defs>
-                  <linearGradient id="ringGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#3b82f6" />
-                    <stop offset="100%" stopColor="#06b6d4" />
-                  </linearGradient>
-                </defs>
-              </svg>
-
-              {/* Number centered inside radial ring */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <span className="text-4xl sm:text-5xl font-black tracking-tight font-mono bg-gradient-to-r from-white via-blue-100 to-cyan-300 bg-clip-text text-transparent drop-shadow-[0_0_20px_rgba(59,130,246,0.6)]">
-                  {formattedValue}
-                </span>
-              </div>
-            </div>
-          ) : (
-            <>
-              {/* Giant Hero Stat Number */}
-              <div className="text-7xl sm:text-8xl md:text-9xl font-black tracking-tight font-mono my-1 bg-gradient-to-r from-white via-blue-100 to-cyan-300 bg-clip-text text-transparent drop-shadow-[0_0_35px_rgba(59,130,246,0.6)]">
-                {formattedValue}
-              </div>
-
-              {/* Ascending Progress Bar Element */}
-              <div className="w-full max-w-md h-3.5 bg-slate-950 rounded-full border border-blue-900/60 p-0.5 mt-4 overflow-hidden shadow-inner relative">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-blue-600 via-cyan-500 to-cyan-300 transition-none"
-                  style={{
-                    width: `${metaphorProgress * 100}%`,
-                    boxShadow: "0 0 12px rgba(6, 182, 212, 0.7)",
-                  }}
-                />
-              </div>
-            </>
-          )}
+        {/* Hero Number */}
+        <div
+          style={{
+            fontSize: 84,
+            fontWeight: 900,
+            fontFamily: "system-ui, -apple-system, sans-serif",
+            letterSpacing: -2,
+            lineHeight: 1,
+            background: "linear-gradient(90deg, #ffffff 0%, #e0f2fe 40%, #38bdf8 100%)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            filter: "drop-shadow(0 0 35px rgba(56, 189, 248, 0.5))",
+          }}
+        >
+          {formattedValue}
         </div>
 
-        {/* Subtext Explanation */}
-        {subtext && (
-          <p className="text-sm sm:text-base text-slate-300 max-w-lg mt-4 font-sans leading-relaxed text-center font-normal">
-            {subtext}
-          </p>
+        {/* Subtext */}
+        {rawSubtext && (
+          <div style={{ fontSize: 20, color: "#cbd5e1", marginTop: 16, lineHeight: 1.5, maxWidth: 640 }}>
+            {rawSubtext}
+          </div>
         )}
 
-        {/* Tech Accent Indicator Lines (Pure frame-driven pulse, zero CSS keyframes) */}
-        <div className="flex items-center gap-2 mt-6">
-          <div className="w-12 h-1 rounded-full bg-gradient-to-r from-blue-500 to-cyan-400" />
-          <div style={{ transform: `scale(${iconPulse})`, opacity: iconPulse }}>
-            {effectiveVisualType === "ring" ? (
-              <Sparkles className="w-4 h-4 text-cyan-400" />
-            ) : (
-              <Activity className="w-4 h-4 text-cyan-400" />
-            )}
+        {/* Visual Chart / Progress Bar */}
+        {effectiveVisualType === "chart" ? (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "flex-end",
+              justifyContent: "space-between",
+              width: "100%",
+              maxWidth: 520,
+              height: 120,
+              marginTop: 28,
+              padding: "16px 24px",
+              backgroundColor: "rgba(15, 23, 42, 0.6)",
+              borderRadius: 16,
+              border: "1px solid rgba(148, 163, 184, 0.2)",
+            }}
+          >
+            {bars.map((bar, idx) => {
+              const barAnim = interpolate(frame, [visualStart + idx * 6, visualEnd + idx * 6], [0, bar.value], {
+                extrapolateLeft: "clamp",
+                extrapolateRight: "clamp",
+                easing: Easing.bezier(0.16, 1, 0.3, 1),
+              });
+              return (
+                <div key={bar.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 44 }}>
+                  <div
+                    style={{
+                      width: 28,
+                      height: `${barAnim * 0.75}px`,
+                      borderRadius: "6px 6px 0 0",
+                      background: bar.highlight
+                        ? "linear-gradient(180deg, #f59e0b 0%, #d97706 100%)"
+                        : "linear-gradient(180deg, #38bdf8 0%, #1e40af 100%)",
+                      boxShadow: bar.highlight ? "0 0 16px rgba(245,158,11,0.6)" : "0 0 12px rgba(56,189,248,0.4)",
+                    }}
+                  />
+                  <span style={{ fontSize: 12, color: "#94a3b8", marginTop: 6, fontWeight: 600 }}>{bar.label}</span>
+                </div>
+              );
+            })}
           </div>
-          <div className="w-12 h-1 rounded-full bg-gradient-to-l from-blue-500 to-cyan-400" />
-        </div>
+        ) : (
+          <div style={{ width: "100%", maxWidth: 480, height: 12, backgroundColor: "rgba(30, 41, 59, 0.8)", borderRadius: 9999, overflow: "hidden", marginTop: 24 }}>
+            <div
+              style={{
+                height: "100%",
+                width: `${metaphorProgress * 100}%`,
+                background: "linear-gradient(90deg, #38bdf8 0%, #06b6d4 100%)",
+                boxShadow: "0 0 14px #38bdf8",
+              }}
+            />
+          </div>
+        )}
       </div>
     </AbsoluteFill>
   );

@@ -14,8 +14,13 @@ let stateFile = "";
 let outFile = "";
 
 for (let i = 0; i < args.length; i++) {
-  if (args[i] === "--state" && args[i + 1]) stateFile = args[++i];
-  if (args[i] === "--out" && args[i + 1]) outFile = args[++i];
+  if (args[i] === "--state" && args[i + 1]) {
+    stateFile = args[i + 1];
+    i++;
+  } else if (args[i] === "--out" && args[i + 1]) {
+    outFile = args[i + 1];
+    i++;
+  }
 }
 
 if (!stateFile || !fs.existsSync(stateFile)) {
@@ -26,6 +31,8 @@ if (!stateFile || !fs.existsSync(stateFile)) {
 const state = JSON.parse(fs.readFileSync(stateFile, "utf-8"));
 if (!outFile) {
   outFile = path.join(rootDir, "public", "renders", `render-${Date.now()}.mp4`);
+} else {
+  outFile = path.resolve(outFile);
 }
 
 fs.mkdirSync(path.dirname(outFile), { recursive: true });
@@ -60,12 +67,14 @@ console.log(
   `[Remotion] Rendering ${composition.durationInFrames} frames (${composition.width}x${composition.height} @ ${composition.fps}fps)...`
 );
 
-await renderMedia({
+const result = await renderMedia({
   composition,
   serveUrl: bundleLocation,
   codec: "h264",
   audioCodec: "aac",
   outputLocation: outFile,
+  overwrite: true,
+  timeoutInMilliseconds: 120000,
   inputProps: {
     projectState: state,
   },

@@ -267,10 +267,10 @@ export default function VideoEditorPage() {
           >
             <ArrowLeft className="w-4 h-4" />
           </Link>
-          <div>
+          <div className="flex items-center gap-2">
             <span className="text-xs font-bold text-white flex items-center gap-2">
               <Film className="w-4 h-4 text-blue-400" />
-              <span>Remotion Timeline Editor</span>
+              <span>{job?.title || "Remotion Timeline Editor"}</span>
               <span className="text-[10px] font-mono uppercase px-1.5 py-0.2 rounded bg-blue-950 text-blue-400 border border-blue-800">
                 {projectState.orientation} ({width}x{height})
               </span>

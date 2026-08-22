@@ -1,6 +1,6 @@
 import React from "react";
 import { AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig, Easing } from "remotion";
-import { Sparkles, TrendingUp, Activity, PieChart, BarChart3, ShieldCheck } from "lucide-react";
+import { TrendingUp, PieChart } from "lucide-react";
 
 export interface StatCardProps {
   value?: string;
@@ -30,7 +30,6 @@ export function StatCard({
   visual_type,
   durationInFrames,
   subtext,
-  themeColor = "#38bdf8",
   text,
   mode,
   display_mode,

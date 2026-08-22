@@ -3,6 +3,7 @@ import {
   JobCreateRequest,
   JobResponse,
   JobSummaryResponse,
+  RenderVideoResponse,
   TimelineJSON,
 } from "./types";
 
@@ -58,7 +59,16 @@ async function request<T>(
       throw new ApiError(message, res.status, errorBody);
     }
 
-    return (await res.json()) as T;
+    if (res.status === 204) {
+      return undefined as unknown as T;
+    }
+
+    const text = await res.text();
+    if (!text || text.trim().length === 0) {
+      return undefined as unknown as T;
+    }
+
+    return JSON.parse(text) as T;
   } catch (error) {
     if (error instanceof ApiError) {
       throw error;
@@ -154,20 +164,42 @@ export const api = {
     jobId: string,
     payload: { timeline?: TimelineJSON },
     params?: { width?: number; height?: number; fps?: number }
-  ): Promise<{ status: string; video_url: string; filename: string; width: number; height: number; fps: number }> {
+  ): Promise<RenderVideoResponse> {
     const query = new URLSearchParams();
     if (params?.width) query.set("width", params.width.toString());
     if (params?.height) query.set("height", params.height.toString());
     if (params?.fps) query.set("fps", params.fps.toString());
 
     const qs = query.toString();
-    return request<{ status: string; video_url: string; filename: string; width: number; height: number; fps: number }>(
+    return request<RenderVideoResponse>(
       `/jobs/${jobId}/render${qs ? `?${qs}` : ""}`,
       {
         method: "POST",
         body: JSON.stringify(payload),
       }
     );
+  },
+
+  /**
+   * Update mutable job metadata like title
+   */
+  async updateJob(
+    jobId: string,
+    payload: { title?: string }
+  ): Promise<JobResponse> {
+    return request<JobResponse>(`/jobs/${jobId}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  /**
+   * Delete a video generation job and its artifacts
+   */
+  async deleteJob(jobId: string): Promise<void> {
+    return request<void>(`/jobs/${jobId}`, {
+      method: "DELETE",
+    });
   },
 
   /**

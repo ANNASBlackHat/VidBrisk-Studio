@@ -18,6 +18,10 @@ import {
   RotateCcw,
   Ban,
   Layers,
+  Trash2,
+  Edit2,
+  Check,
+  X,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { JobSummaryResponse, TargetOrientation } from "@/lib/types";
@@ -28,6 +32,10 @@ import { MotionGallery } from "@/components/motion/MotionGallery";
 export default function DashboardPage() {
   const [filter, setFilter] = useState<string>("all");
   const [isRetrying, setIsRetrying] = useState<string | null>(null);
+  const [editingJobId, setEditingJobId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState<string>("");
+  const [isSavingTitle, setIsSavingTitle] = useState<boolean>(false);
+  const [deletingJobId, setDeletingJobId] = useState<string | null>(null);
 
   const {
     data: jobs,
@@ -100,6 +108,60 @@ export default function DashboardPage() {
       await mutate();
     } catch (err) {
       console.error("Failed to cancel job", err);
+    }
+  };
+
+  const handleStartEdit = (job: JobSummaryResponse, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setEditingJobId(job.id);
+    setEditTitle(job.title || `Video ${job.id.slice(0, 8)}`);
+  };
+
+  const handleSaveTitle = async (jobId: string, e?: React.MouseEvent | React.FormEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    if (!editTitle.trim()) return;
+
+    try {
+      setIsSavingTitle(true);
+      await api.updateJob(jobId, { title: editTitle.trim() });
+      await mutate();
+      setEditingJobId(null);
+    } catch (err) {
+      console.error("Failed to update video title", err);
+    } finally {
+      setIsSavingTitle(false);
+    }
+  };
+
+  const handleCancelEdit = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    setEditingJobId(null);
+    setEditTitle("");
+  };
+
+  const handleDelete = async (jobId: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!confirm("Are you sure you want to permanently delete this video generation job and all its rendered outputs?")) {
+      return;
+    }
+
+    try {
+      setDeletingJobId(jobId);
+      await api.deleteJob(jobId);
+      await mutate();
+    } catch (err) {
+      console.error("Failed to delete job", err);
+      alert("Failed to delete job: " + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setDeletingJobId(null);
     }
   };
 
@@ -245,8 +307,8 @@ export default function DashboardPage() {
                     : "bg-slate-900/30 border-slate-800/80 hover:border-slate-700"
                 }`}
               >
-                <div className="flex items-start gap-4 min-w-0">
-                  <div className="flex flex-col items-center justify-center p-2.5 rounded-lg bg-slate-800/80 border border-slate-700/60 text-slate-300">
+                <div className="flex items-start gap-4 min-w-0 flex-1">
+                  <div className="flex flex-col items-center justify-center p-2.5 rounded-lg bg-slate-800/80 border border-slate-700/60 text-slate-300 shrink-0">
                     {getOrientationIcon(job.target_orientation)}
                     <span className="text-[9px] uppercase font-mono mt-1 text-slate-400">
                       {job.target_orientation === "vertical"
@@ -257,13 +319,68 @@ export default function DashboardPage() {
                     </span>
                   </div>
 
-                  <div className="flex flex-col gap-1 min-w-0">
+                  <div className="flex flex-col gap-1.5 min-w-0 flex-1">
+                    {/* Title and inline rename form */}
+                    {editingJobId === job.id ? (
+                      <div className="flex items-center gap-2 max-w-lg">
+                        <input
+                          type="text"
+                          value={editTitle}
+                          onChange={(e) => setEditTitle(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleSaveTitle(job.id, e);
+                            if (e.key === "Escape") handleCancelEdit();
+                          }}
+                          autoFocus
+                          disabled={isSavingTitle}
+                          className="px-2.5 py-1 text-sm bg-slate-950 border border-blue-500 rounded-md text-white focus:outline-none flex-1 font-medium"
+                          placeholder="Enter video title..."
+                        />
+                        <button
+                          type="button"
+                          onClick={(e) => handleSaveTitle(job.id, e)}
+                          disabled={isSavingTitle}
+                          className="p-1 rounded bg-blue-600 hover:bg-blue-500 text-white transition-colors"
+                          title="Save Title"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleCancelEdit}
+                          disabled={isSavingTitle}
+                          className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
+                          title="Cancel"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 group/title">
+                        <Link
+                          href={targetUrl}
+                          className="font-semibold text-sm sm:text-base text-slate-100 hover:text-blue-400 transition-colors line-clamp-1 flex items-center gap-1.5"
+                        >
+                          <span>{job.title || `Video ${job.id.slice(0, 8)}`}</span>
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={(e) => handleStartEdit(job, e)}
+                          className="opacity-0 group-hover:opacity-100 p-1 text-slate-500 hover:text-slate-200 rounded hover:bg-slate-800 transition-all"
+                          title="Rename video"
+                        >
+                          <Edit2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Metadata & Status */}
                     <div className="flex items-center gap-2.5 flex-wrap">
                       <Link
                         href={targetUrl}
-                        className="font-mono text-xs font-semibold text-slate-200 hover:text-blue-400 transition-colors flex items-center gap-1"
+                        className="font-mono text-[11px] text-slate-400 hover:text-blue-400 transition-colors flex items-center gap-0.5"
                       >
-                        <span>{job.id.slice(0, 8)}...</span>
+                        <span>ID: {job.id.slice(0, 8)}</span>
                         <ChevronRight className="w-3 h-3 text-slate-500 group-hover:text-blue-400" />
                       </Link>
 
@@ -279,7 +396,7 @@ export default function DashboardPage() {
                       </div>
                     </div>
 
-                    <p className="text-xs text-slate-400 mt-1 line-clamp-1">
+                    <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">
                       Created {formatDate(job.created_at)} • Checkpoints:{" "}
                       {job.auto_approve ? "Disabled (Auto)" : "Enabled"}
                     </p>
@@ -292,7 +409,7 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 mt-4 sm:mt-0 pt-3 sm:pt-0 border-t sm:border-t-0 border-slate-800/80">
+                <div className="flex items-center gap-2 mt-4 sm:mt-0 pt-3 sm:pt-0 border-t sm:border-t-0 border-slate-800/80 shrink-0">
                   {isDone ? (
                     <Link
                       href={`/jobs/${job.id}/editor`}
@@ -335,12 +452,21 @@ export default function DashboardPage() {
                   {!isDone && !isFailed && (
                     <button
                       onClick={(e) => handleCancel(job.id, e)}
-                      className="p-1.5 text-slate-500 hover:text-rose-400 rounded-lg hover:bg-slate-800/80 transition-colors"
+                      className="p-1.5 text-slate-500 hover:text-amber-400 rounded-lg hover:bg-slate-800/80 transition-colors"
                       title="Cancel Job"
                     >
                       <Ban className="w-3.5 h-3.5" />
                     </button>
                   )}
+
+                  <button
+                    onClick={(e) => handleDelete(job.id, e)}
+                    disabled={deletingJobId === job.id}
+                    className="p-1.5 text-slate-500 hover:text-rose-400 rounded-lg hover:bg-rose-950/30 transition-colors"
+                    title="Delete Video"
+                  >
+                    <Trash2 className={`w-3.5 h-3.5 ${deletingJobId === job.id ? "animate-spin" : ""}`} />
+                  </button>
                 </div>
               </div>
             );

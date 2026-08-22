@@ -13,6 +13,23 @@ export function formatDuration(seconds: number): string {
   return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}.${ms}`;
 }
 
+/**
+ * Formats render duration and elapsed time into human-friendly MM:SS format,
+ * e.g. "01:30s" or "01:30s (1m 30s)"
+ */
+export function formatRenderTime(seconds: number, verbose = false): string {
+  if (!seconds || isNaN(seconds) || seconds <= 0) return "00:00s";
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  const mm = mins.toString().padStart(2, "0");
+  const ss = secs.toString().padStart(2, "0");
+
+  if (mins > 0) {
+    return verbose ? `${mm}:${ss}s (${mins}m ${secs}s)` : `${mm}:${ss}s`;
+  }
+  return verbose ? `${mm}:${ss}s (${seconds.toFixed(1)}s)` : `${mm}:${ss}s`;
+}
+
 export function formatDate(dateString: string): string {
   try {
     const date = new Date(dateString);
@@ -43,7 +60,11 @@ export function resolveMediaUrl(pathOrUrl?: string): string {
       !pathOrUrl.startsWith("/"))
   ) {
     const cleanPath = pathOrUrl.replace("file://", "");
-    return `/api/media?path=${encodeURIComponent(cleanPath)}`;
+    const host =
+      typeof window !== "undefined" && window.location.port && window.location.port !== "3000"
+        ? "http://localhost:3000"
+        : "";
+    return `${host}/api/media?path=${encodeURIComponent(cleanPath)}`;
   }
 
   return pathOrUrl;

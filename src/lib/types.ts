@@ -152,12 +152,17 @@ export interface TimelineJSON {
 }
 
 export interface JobCreateRequest {
+  title?: string;
   raw_input: string;
-  tts_provider?: "kokoro" | "chatterbox" | "mock" | string;
+  tts_provider?: "kokoro" | "supersonic" | "chatterbox" | "mock" | string;
   aligner_provider?: "easytranscriber" | "whisperx" | "mock" | string;
   target_orientation?: TargetOrientation;
   auto_approve?: boolean;
   single_pass_llm?: boolean;
+}
+
+export interface JobUpdateRequest {
+  title?: string;
 }
 
 export interface JobApprovalRequest {
@@ -166,8 +171,17 @@ export interface JobApprovalRequest {
   candidates_override?: Record<string, FootageCandidate[]>;
 }
 
+export interface JobProgress {
+  stage?: string;
+  current?: number;
+  total?: number;
+  percent?: number;
+  message?: string;
+}
+
 export interface JobSummaryResponse {
   id: string;
+  title?: string | null;
   stage: JobStage;
   status: JobStatus;
   tts_provider: string;
@@ -177,10 +191,12 @@ export interface JobSummaryResponse {
   created_at: string;
   updated_at: string;
   error_message?: string | null;
+  progress?: JobProgress | null;
 }
 
 export interface JobResponse {
   id: string;
+  title?: string | null;
   raw_input: string;
   stage: JobStage;
   status: JobStatus;
@@ -197,8 +213,21 @@ export interface JobResponse {
   asset_plan?: AssetPlan[] | null;
   timeline?: TimelineJSON | null;
   error_message?: string | null;
+  progress?: JobProgress | null;
   created_at: string;
   updated_at: string;
+}
+
+export type RenderEngineType = "remotion-native" | "ffmpeg-fallback";
+
+export interface RenderVideoResponse {
+  status: string;
+  render_engine?: RenderEngineType;
+  video_url: string;
+  filename: string;
+  width: number;
+  height: number;
+  fps: number;
 }
 
 export const STAGE_CONFIGS: {

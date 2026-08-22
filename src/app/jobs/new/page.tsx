@@ -26,6 +26,7 @@ import { PresetSelector } from "@/components/ui/PresetSelector";
 export default function NewVideoPage() {
   const router = useRouter();
 
+  const [title, setTitle] = useState<string>("");
   const [rawInput, setRawInput] = useState<string>("");
   const [targetOrientation, setTargetOrientation] =
     useState<TargetOrientation>("horizontal");
@@ -55,6 +56,7 @@ export default function NewVideoPage() {
     setErrorMessage(null);
 
     const payload: JobCreateRequest = {
+      title: title.trim() || undefined,
       raw_input: rawInput.trim(),
       target_orientation: targetOrientation,
       auto_approve: autoApprove,
@@ -112,7 +114,38 @@ export default function NewVideoPage() {
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-6">
         {/* Sample Presets */}
-        <PresetSelector onSelect={(script) => setRawInput(script)} />
+        <PresetSelector onSelect={(script) => {
+          setRawInput(script);
+          const firstLine = script.trim().split("\n")[0]?.replace(/\[VISUAL:.*?\]/g, "").trim();
+          if (firstLine && !title) {
+            setTitle(firstLine.slice(0, 60));
+          }
+        }} />
+
+        {/* Video Title / Project Name */}
+        <div className="flex flex-col gap-2 p-5 rounded-2xl bg-slate-900/60 border border-slate-800/80">
+          <label
+            htmlFor="title-input"
+            className="text-xs font-semibold uppercase tracking-wider text-slate-300 flex items-center justify-between"
+          >
+            <span className="flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-blue-400" />
+              Video Title (Optional)
+            </span>
+            <span className="text-[11px] text-slate-500 font-normal lowercase">
+              Auto-generated if left blank
+            </span>
+          </label>
+          <input
+            id="title-input"
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="e.g. Apollo 11 Lunar Landing Documentary"
+            maxLength={255}
+            className="w-full mt-1 px-3.5 py-2.5 rounded-xl bg-slate-950/80 border border-slate-800 text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all"
+          />
+        </div>
 
         {/* Script / Prompt Textarea */}
         <div className="flex flex-col gap-2 p-5 rounded-2xl bg-slate-900/60 border border-slate-800/80">
@@ -287,6 +320,7 @@ Neil Armstrong stepped onto the lunar surface..."
                   className="w-full p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-xs text-slate-200 focus:outline-none focus:border-blue-500 font-mono"
                 >
                   <option value="kokoro">Kokoro (Local, Apache 2.0 - Default)</option>
+                  <option value="supersonic">Supersonic 3 / Supertonic (Ultra-fast, On-Device, 31 Langs)</option>
                   <option value="chatterbox">Chatterbox (Local, MIT)</option>
                   <option value="mock">Mock Engine (Fast test)</option>
                 </select>

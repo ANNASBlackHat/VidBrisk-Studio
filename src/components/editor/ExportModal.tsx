@@ -6,16 +6,20 @@ import {
   editorStateToTimeline,
 } from "@/adapters/timelineToEditorState";
 import { api } from "@/lib/api";
+import { RenderEngineType } from "@/lib/types";
+import { formatRenderTime } from "@/lib/utils";
 import {
   Download,
   X,
-  CheckCircle2,
   AlertCircle,
+  AlertTriangle,
   Film,
   Sparkles,
   Settings,
   Play,
   RotateCcw,
+  Clock,
+  Timer,
 } from "lucide-react";
 
 interface ExportModalProps {
@@ -38,7 +42,10 @@ export function ExportModal({
   const [progress, setProgress] = useState<number>(0);
   const [renderStage, setRenderStage] = useState<string>("");
   const [renderedVideoUrl, setRenderedVideoUrl] = useState<string | null>(null);
+  const [renderEngine, setRenderEngine] = useState<RenderEngineType | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
+  const [totalRenderTime, setTotalRenderTime] = useState<number | null>(null);
 
   // Reset state when modal opens
   useEffect(() => {
@@ -46,7 +53,10 @@ export function ExportModal({
       setIsRendering(false);
       setProgress(0);
       setRenderStage("");
+      setRenderEngine(null);
       setErrorMessage(null);
+      setElapsedSeconds(0);
+      setTotalRenderTime(null);
     }
   }, [isOpen]);
 
@@ -57,6 +67,14 @@ export function ExportModal({
     setProgress(15);
     setRenderStage("Synthesizing Remotion React motion graphics & typography...");
     setErrorMessage(null);
+    setRenderEngine(null);
+    setElapsedSeconds(0);
+    setTotalRenderTime(null);
+
+    const startTs = Date.now();
+    const elapsedInterval = setInterval(() => {
+      setElapsedSeconds((Date.now() - startTs) / 1000);
+    }, 100);
 
     const progressTimer1 = setTimeout(() => {
       setProgress(40);
@@ -95,6 +113,8 @@ export function ExportModal({
 
       // 1. Try High-Fidelity Remotion Native Renderer
       let videoUrl: string | null = null;
+      let engine: RenderEngineType | null = null;
+
       try {
         const remotionRes = await fetch("/api/render", {
           method: "POST",
@@ -109,12 +129,16 @@ export function ExportModal({
         if (remotionRes.ok) {
           const data = await remotionRes.json();
           videoUrl = data.video_url;
+          engine = data.render_engine || "remotion-native";
+        } else {
+          const errData = await remotionRes.json().catch(() => null);
+          console.warn("Remotion renderer returned error:", errData?.error || remotionRes.statusText);
         }
       } catch (e) {
-        console.warn("Remotion render fallback:", e);
+        console.warn("Remotion render fallback triggered:", e);
       }
 
-      // 2. Fallback to Backend Renderer if needed
+      // 2. Fallback to Backend Renderer if needed (will refuse motion timelines loudly)
       if (!videoUrl) {
         const timelinePayload = editorStateToTimeline(projectState);
         const res = await api.renderVideo(
@@ -123,20 +147,28 @@ export function ExportModal({
           { width, height, fps }
         );
         videoUrl = res.video_url;
+        engine = res.render_engine || "ffmpeg-fallback";
       }
 
       clearTimeout(progressTimer1);
       clearTimeout(progressTimer2);
       clearTimeout(progressTimer3);
+      clearInterval(elapsedInterval);
+
+      const finalElapsed = (Date.now() - startTs) / 1000;
+      setElapsedSeconds(finalElapsed);
+      setTotalRenderTime(finalElapsed);
 
       setProgress(100);
       setRenderStage("Export complete!");
+      setRenderEngine(engine);
       setRenderedVideoUrl(videoUrl);
     } catch (err) {
       console.error("Render failed:", err);
       clearTimeout(progressTimer1);
       clearTimeout(progressTimer2);
       clearTimeout(progressTimer3);
+      clearInterval(elapsedInterval);
       setErrorMessage(
         err instanceof Error ? err.message : "Video rendering failed."
       );
@@ -261,7 +293,7 @@ export function ExportModal({
                 <span>Total Duration:</span>
               </div>
               <span className="font-bold text-slate-200">
-                {projectState.totalDuration.toFixed(1)}s
+                {formatRenderTime(projectState.totalDuration, true)}
               </span>
             </div>
 
@@ -287,32 +319,81 @@ export function ExportModal({
               </span>
             </div>
 
-            <div className="flex flex-col gap-2 w-full max-w-sm">
+            <div className="flex flex-col gap-2.5 w-full max-w-sm">
               <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
                 <div
                   style={{ width: `${progress}%` }}
                   className="h-full bg-blue-500 rounded-full transition-all duration-300 shadow-[0_0_12px_rgba(59,130,246,0.8)]"
                 />
               </div>
-              <p className="text-xs font-mono text-slate-400 animate-pulse">
-                {renderStage}
-              </p>
+
+              <div className="flex items-center justify-between text-xs font-mono px-0.5">
+                <p className="text-slate-400 animate-pulse text-left truncate max-w-[220px]">
+                  {renderStage}
+                </p>
+                <div className="flex items-center gap-1.5 text-blue-400 font-semibold shrink-0 bg-blue-950/70 px-2.5 py-1 rounded-full border border-blue-800/60 shadow-sm">
+                  <Timer className="w-3.5 h-3.5 animate-pulse text-blue-400" />
+                  <span>{formatRenderTime(elapsedSeconds)}</span>
+                </div>
+              </div>
             </div>
           </div>
         )}
 
         {/* Completed Download View */}
         {isComplete && (
-          <div className="flex flex-col gap-5">
-            <div className="flex items-center gap-3 p-4 rounded-2xl bg-emerald-950/30 border border-emerald-800/60 text-emerald-200">
-              <CheckCircle2 className="w-6 h-6 text-emerald-400 shrink-0" />
-              <div>
-                <h4 className="text-sm font-bold text-emerald-100">
-                  Video Render Complete!
-                </h4>
-                <p className="text-xs text-emerald-300/80 mt-0.5">
-                  Your video has been rendered at {quality} ({fps} FPS).
-                </p>
+          <div className="flex flex-col gap-4">
+            {renderEngine === "ffmpeg-fallback" ? (
+              <div className="flex items-start gap-3 p-4 rounded-2xl bg-amber-950/40 border border-amber-800/80 text-amber-200">
+                <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <h4 className="text-sm font-bold text-amber-100">
+                      Video Exported (FFmpeg Fallback)
+                    </h4>
+                    <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-semibold uppercase tracking-wider border border-amber-500/30">
+                      Fallback
+                    </span>
+                  </div>
+                  <p className="text-xs text-amber-300/80 mt-1">
+                    Exported without motion animation — Remotion renderer was unavailable at {quality} ({fps} FPS).
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-start gap-3 p-4 rounded-2xl bg-emerald-950/30 border border-emerald-800/60 text-emerald-200">
+                <Sparkles className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <h4 className="text-sm font-bold text-emerald-100">
+                      Video Render Complete!
+                    </h4>
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-semibold uppercase tracking-wider border border-emerald-500/30">
+                      Remotion Native
+                    </span>
+                  </div>
+                  <p className="text-xs text-emerald-300/80 mt-1">
+                    High-fidelity Remotion native render with frame-accurate motion graphics & spring physics at {quality} ({fps} FPS).
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Performance & Output Meta Summary */}
+            <div className="grid grid-cols-2 gap-2.5 p-3 rounded-2xl bg-slate-950/80 border border-slate-800 text-xs font-mono">
+              <div className="flex items-center gap-2 text-slate-400">
+                <Clock className="w-4 h-4 text-blue-400 shrink-0" />
+                <span>Render Time:</span>
+                <span className="font-bold text-emerald-400">
+                  {totalRenderTime !== null ? formatRenderTime(totalRenderTime, true) : "--"}
+                </span>
+              </div>
+              <div className="flex items-center justify-end gap-2 text-slate-400">
+                <Film className="w-4 h-4 text-blue-400 shrink-0" />
+                <span>Format:</span>
+                <span className="font-bold text-slate-200">
+                  {quality.toUpperCase()} • {fps} FPS
+                </span>
               </div>
             </div>
 

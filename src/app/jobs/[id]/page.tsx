@@ -18,6 +18,9 @@ import {
   Smartphone,
   Square,
   Sparkles,
+  Edit2,
+  Check,
+  X,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { JobResponse, STAGE_CONFIGS, TargetOrientation } from "@/lib/types";
@@ -32,6 +35,9 @@ export default function JobProgressPage() {
 
   const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [titleInput, setTitleInput] = useState("");
+  const [isSavingTitle, setIsSavingTitle] = useState(false);
 
   // Poll job status every 2.5 seconds, but stop polling if awaiting approval, done, or failed
   const {
@@ -131,17 +137,89 @@ export default function JobProgressPage() {
           >
             <ArrowLeft className="w-4 h-4" />
           </Link>
-          <div>
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <h1 className="text-lg sm:text-xl font-bold tracking-tight text-white font-mono">
-                Job #{job.id.slice(0, 8)}
-              </h1>
-              <StatusBadge stage={job.stage} status={job.status} size="md" />
+          <div className="flex flex-col gap-1">
+            {isEditingTitle ? (
+              <div className="flex items-center gap-2 max-w-md">
+                <input
+                  type="text"
+                  value={titleInput}
+                  onChange={(e) => setTitleInput(e.target.value)}
+                  onKeyDown={async (e) => {
+                    if (e.key === "Enter" && titleInput.trim()) {
+                      setIsSavingTitle(true);
+                      try {
+                        await api.updateJob(jobId, { title: titleInput.trim() });
+                        await mutate();
+                        setIsEditingTitle(false);
+                      } catch (err) {
+                        console.error("Failed to update title", err);
+                      } finally {
+                        setIsSavingTitle(false);
+                      }
+                    } else if (e.key === "Escape") {
+                      setIsEditingTitle(false);
+                    }
+                  }}
+                  autoFocus
+                  disabled={isSavingTitle}
+                  className="px-2.5 py-1 text-sm bg-slate-950 border border-blue-500 rounded-md text-white focus:outline-none flex-1 font-medium"
+                />
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!titleInput.trim()) return;
+                    setIsSavingTitle(true);
+                    try {
+                      await api.updateJob(jobId, { title: titleInput.trim() });
+                      await mutate();
+                      setIsEditingTitle(false);
+                    } catch (err) {
+                      console.error("Failed to update title", err);
+                    } finally {
+                      setIsSavingTitle(false);
+                    }
+                  }}
+                  disabled={isSavingTitle}
+                  className="p-1 rounded bg-blue-600 hover:bg-blue-500 text-white transition-colors"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsEditingTitle(false)}
+                  disabled={isSavingTitle}
+                  className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 group/title">
+                <h1 className="text-lg sm:text-xl font-bold tracking-tight text-white flex items-center gap-2">
+                  <span>{job.title || `Job #${job.id.slice(0, 8)}`}</span>
+                </h1>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTitleInput(job.title || `Job #${job.id.slice(0, 8)}`);
+                    setIsEditingTitle(true);
+                  }}
+                  className="opacity-0 group-hover/title:opacity-100 p-1 text-slate-500 hover:text-slate-200 rounded hover:bg-slate-800 transition-all"
+                  title="Rename Video"
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                </button>
+                <StatusBadge stage={job.stage} status={job.status} size="sm" />
+              </div>
+            )}
+
+            <div className="flex items-center gap-2 text-xs text-slate-400">
+              <span className="font-mono text-slate-500">ID: {job.id.slice(0, 8)}</span>
+              <span>•</span>
+              <span>Created {formatDate(job.created_at)}</span>
+              <span>•</span>
+              <span>Auto-Approve: {job.auto_approve ? "Enabled" : "Disabled (Checkpoints ON)"}</span>
             </div>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Created {formatDate(job.created_at)} • Auto-Approve:{" "}
-              {job.auto_approve ? "Enabled" : "Disabled (Checkpoints ON)"}
-            </p>
           </div>
         </div>
 
@@ -236,6 +314,41 @@ export default function JobProgressPage() {
           })}
         </div>
       </div>
+
+      {/* Real-time Stage Progress & Beat Counter */}
+      {job.status === "in_progress" && (
+        <div className="flex flex-col gap-3 p-5 rounded-2xl bg-blue-950/20 border border-blue-800/50 shadow-lg shadow-blue-950/30">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-500"></span>
+              </span>
+              <span className="text-xs font-semibold text-blue-200">
+                {job.progress?.message || `Executing stage: ${job.stage}...`}
+              </span>
+            </div>
+            {job.progress?.total && job.progress.total > 0 ? (
+              <span className="text-xs font-mono font-bold text-blue-400">
+                {job.progress.current} / {job.progress.total} ({job.progress.percent}%)
+              </span>
+            ) : null}
+          </div>
+
+          <div className="w-full bg-slate-950/80 h-2.5 rounded-full overflow-hidden border border-slate-800/80 p-0.5">
+            <div
+              className="bg-gradient-to-r from-blue-600 to-cyan-400 h-full rounded-full transition-all duration-300 ease-out"
+              style={{
+                width: `${
+                  job.progress?.percent !== undefined
+                    ? Math.max(5, Math.min(100, job.progress.percent))
+                    : 15
+                }%`,
+              }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Checkpoint 1: Script Review (if paused at structuring) */}
       {job.stage === "structuring" && isAwaitingApproval && (

@@ -81,6 +81,7 @@ export async function POST(request: NextRequest) {
     const videoUrl = `/renders/${filename}`;
     return NextResponse.json({
       status: "complete",
+      render_engine: "remotion-native",
       video_url: videoUrl,
       filename,
       width,

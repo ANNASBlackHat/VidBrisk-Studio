@@ -17,6 +17,7 @@ export function MotionGallery() {
 
   const [statValue, setStatValue] = useState("$25B");
   const [statLabel, setStatLabel] = useState("Total Apollo Cost");
+  const [statVisualType, setStatVisualType] = useState<"ring" | "bar">("bar");
   const [statSubtext, setStatSubtext] = useState("4% of the United States Federal Budget");
 
   const [typewriterText, setTypewriterText] = useState(
@@ -35,6 +36,8 @@ export function MotionGallery() {
           <StatCard
             value={statValue}
             label={statLabel}
+            visualType={statVisualType}
+            durationInFrames={180}
             subtext={statSubtext}
             themeColor="#3b82f6"
           />
@@ -123,6 +126,38 @@ export function MotionGallery() {
 
           {selectedKey === "DataAnimations/StatCard" && (
             <div className="flex flex-col gap-3">
+              <div>
+                <label className="text-slate-400 block mb-1">Visual Metaphor:</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setStatVisualType("bar")}
+                    className={`py-1.5 px-2 rounded-lg text-xs font-mono font-medium transition-all ${
+                      statVisualType === "bar"
+                        ? "bg-blue-600 text-white shadow-sm"
+                        : "bg-slate-900 text-slate-400 border border-slate-800 hover:text-slate-200"
+                    }`}
+                  >
+                    Progress Bar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStatVisualType("ring");
+                      if (!statValue.includes("%")) {
+                        setStatValue("75%");
+                      }
+                    }}
+                    className={`py-1.5 px-2 rounded-lg text-xs font-mono font-medium transition-all ${
+                      statVisualType === "ring"
+                        ? "bg-blue-600 text-white shadow-sm"
+                        : "bg-slate-900 text-slate-400 border border-slate-800 hover:text-slate-200"
+                    }`}
+                  >
+                    Radial Ring
+                  </button>
+                </div>
+              </div>
               <div>
                 <label className="text-slate-400 block mb-1">Value / Metric:</label>
                 <input

@@ -122,6 +122,46 @@ export function ClipInspector({
             <>
               <div>
                 <label className="text-[11px] text-slate-400 block mb-1">
+                  Visual Metaphor:
+                </label>
+                <div className="grid grid-cols-2 gap-1.5 font-mono text-[11px]">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onUpdateClipProps(selectedClip.id, {
+                        ...selectedClip.props,
+                        visualType: "bar",
+                      })
+                    }
+                    className={`py-1.5 px-2 rounded-lg font-medium transition-all ${
+                      (selectedClip.props?.visualType || "bar") === "bar"
+                        ? "bg-purple-600 text-white shadow-sm"
+                        : "bg-slate-900 text-slate-400 border border-slate-800 hover:text-slate-200"
+                    }`}
+                  >
+                    Progress Bar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onUpdateClipProps(selectedClip.id, {
+                        ...selectedClip.props,
+                        visualType: "ring",
+                      })
+                    }
+                    className={`py-1.5 px-2 rounded-lg font-medium transition-all ${
+                      selectedClip.props?.visualType === "ring"
+                        ? "bg-purple-600 text-white shadow-sm"
+                        : "bg-slate-900 text-slate-400 border border-slate-800 hover:text-slate-200"
+                    }`}
+                  >
+                    Radial Ring
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[11px] text-slate-400 block mb-1">
                   Metric Value:
                 </label>
                 <input

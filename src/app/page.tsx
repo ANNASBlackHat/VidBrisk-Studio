@@ -23,6 +23,7 @@ import { api } from "@/lib/api";
 import { JobSummaryResponse, TargetOrientation } from "@/lib/types";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { formatDate } from "@/lib/utils";
+import { MotionGallery } from "@/components/motion/MotionGallery";
 
 export default function DashboardPage() {
   const [filter, setFilter] = useState<string>("all");
@@ -346,6 +347,11 @@ export default function DashboardPage() {
           })}
         </div>
       )}
+
+      {/* Motion Component Registry Showcase */}
+      <div className="mt-8">
+        <MotionGallery />
+      </div>
     </div>
   );
 }

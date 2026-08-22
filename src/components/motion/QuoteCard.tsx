@@ -6,6 +6,7 @@ export interface QuoteCardProps {
   quote?: string;
   emphasis?: string | null;
   author?: string | null;
+  durationInFrames?: number;
   text?: string;
 }
 
@@ -13,27 +14,54 @@ export function QuoteCard({
   quote,
   emphasis,
   author = "Apollo 11 Overview",
+  durationInFrames,
   text,
 }: QuoteCardProps) {
   const content = quote || text || "The impossible is only what hasn't been done yet.";
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
+  const videoConfig = useVideoConfig();
+  const fps = videoConfig.fps;
 
-  const scale = spring({
+  const totalFrames = Math.max(
+    30,
+    durationInFrames || videoConfig.durationInFrames || 150
+  );
+
+  const entranceEnd = Math.floor(totalFrames * 0.15);
+  const exitStart = Math.floor(totalFrames * 0.88);
+
+  const entranceSpring = spring({
     frame,
     fps,
     config: { damping: 14, mass: 0.6, stiffness: 90 },
   });
 
-  const opacity = interpolate(frame, [0, 12], [0, 1], {
+  const entranceOpacity = interpolate(frame, [0, Math.max(1, entranceEnd)], [0, 1], {
+    extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
 
-  const translateY = interpolate(frame, [0, 18], [25, 0], {
+  const entranceTranslateY = interpolate(frame, [0, Math.max(1, entranceEnd)], [25, 0], {
+    extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
 
-  const pulse = Math.sin(frame / 10) * 8;
+  // Soft exit (last ~12% of duration)
+  const exitProgress = interpolate(frame, [exitStart, totalFrames], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
+  const exitOpacity = 1 - exitProgress;
+  const exitScale = interpolate(exitProgress, [0, 1], [1, 0.94]);
+  const exitTranslateY = interpolate(exitProgress, [0, 1], [0, -15]);
+
+  const opacity = entranceOpacity * exitOpacity;
+  const scale = entranceSpring * exitScale;
+  const translateY = entranceTranslateY + exitTranslateY;
+
+  const pulse = Math.sin((frame * Math.PI * 2) / 80);
+  const glow = 0.35 + Math.sin((frame * Math.PI * 2) / 60) * 0.08;
 
   // Highlight the emphasized phrase if present
   const renderFormattedQuote = () => {
@@ -67,8 +95,8 @@ export function QuoteCard({
         className="absolute w-[600px] h-[600px] rounded-full blur-[140px] pointer-events-none"
         style={{
           background: "radial-gradient(circle, #9333ea 0%, rgba(147, 51, 234, 0.3) 40%, transparent 70%)",
-          opacity: 0.4,
-          transform: `scale(${1 + pulse * 0.02})`,
+          opacity: glow,
+          transform: `scale(${1 + pulse * 0.03})`,
         }}
       />
 

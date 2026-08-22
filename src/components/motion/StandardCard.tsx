@@ -4,24 +4,48 @@ import { interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 export interface StandardCardProps {
   text?: string;
   title?: string;
+  durationInFrames?: number;
 }
 
 export function StandardCard({
   text = "Standard narration text card overlay.",
   title,
+  durationInFrames,
 }: StandardCardProps) {
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
+  const videoConfig = useVideoConfig();
+  const fps = videoConfig.fps;
 
-  const scale = spring({
+  const totalFrames = Math.max(
+    30,
+    durationInFrames || videoConfig.durationInFrames || 150
+  );
+
+  const entranceEnd = Math.floor(totalFrames * 0.15);
+  const exitStart = Math.floor(totalFrames * 0.88);
+
+  const entranceSpring = spring({
     frame,
     fps,
     config: { damping: 12, mass: 0.5, stiffness: 100 },
   });
 
-  const opacity = interpolate(frame, [0, 10], [0, 1], {
+  const entranceOpacity = interpolate(frame, [0, Math.max(1, entranceEnd)], [0, 1], {
+    extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
+
+  // Soft exit
+  const exitProgress = interpolate(frame, [exitStart, totalFrames], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
+  const exitOpacity = 1 - exitProgress;
+  const exitScale = interpolate(exitProgress, [0, 1], [1, 0.94]);
+
+  const scale = entranceSpring * exitScale;
+  const opacity = entranceOpacity * exitOpacity;
 
   return (
     <div className="absolute inset-0 flex items-center justify-center p-8 bg-[#090d16]/85 backdrop-blur-md overflow-hidden">

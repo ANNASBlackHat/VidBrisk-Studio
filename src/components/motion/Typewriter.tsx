@@ -6,14 +6,22 @@ export interface TypewriterProps {
   variant?: string;
   charactersPerSecond?: number;
   highlightWords?: string[];
+  durationInFrames?: number;
 }
 
 export function Typewriter({
   text = "In July 1969, humanity embarked on its most daring voyage...",
   charactersPerSecond = 24,
+  durationInFrames,
 }: TypewriterProps) {
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
+  const videoConfig = useVideoConfig();
+  const fps = videoConfig.fps;
+
+  const totalFrames = Math.max(
+    30,
+    durationInFrames || videoConfig.durationInFrames || 150
+  );
 
   const totalChars = text.length;
   const charsShown = Math.min(
@@ -23,12 +31,23 @@ export function Typewriter({
 
   const displayedText = text.slice(0, charsShown);
 
-  // Blinking cursor every 15 frames
+  // Blinking cursor (frame calculation)
   const cursorOpacity = Math.floor(frame / 12) % 2 === 0 ? 1 : 0;
 
-  const cardOpacity = interpolate(frame, [0, 10], [0, 1], {
+  const entranceOpacity = interpolate(frame, [0, 10], [0, 1], {
+    extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
+
+  const exitStart = Math.floor(totalFrames * 0.88);
+  const exitProgress = interpolate(frame, [exitStart, totalFrames], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
+  const exitOpacity = 1 - exitProgress;
+  const exitScale = interpolate(exitProgress, [0, 1], [1, 0.94]);
+  const cardOpacity = entranceOpacity * exitOpacity;
 
   return (
     <div className="absolute inset-0 flex items-center justify-center p-8 bg-[#090d16]/85 backdrop-blur-md overflow-hidden">
@@ -37,7 +56,10 @@ export function Typewriter({
 
       {/* Typewriter text container */}
       <div
-        style={{ opacity: cardOpacity }}
+        style={{
+          opacity: cardOpacity,
+          transform: `scale(${exitScale})`,
+        }}
         className="relative z-10 max-w-2xl w-full p-8 sm:p-12 rounded-3xl bg-slate-900/90 border border-slate-700/80 shadow-2xl shadow-blue-950/40 backdrop-blur-xl flex flex-col items-start text-left"
       >
         <div className="flex items-center gap-2 mb-4">

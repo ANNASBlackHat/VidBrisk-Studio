@@ -37,6 +37,7 @@ export function VideoComposition({ projectState }: VideoCompositionProps) {
           <AbsoluteFill>
             <MotionComp
               {...(item.props || {})}
+              durationInFrames={durationFrames}
               text={
                 typeof item.props?.text === "string"
                   ? item.props.text

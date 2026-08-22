@@ -154,9 +154,12 @@ export function timelineToEditorState(
               /(\$?\d+(?:\.\d+)?\s*(?:billion|million|thousand|percent|%|k|m|b)?|\d+%)/i
             );
             const val = match ? match[1].toUpperCase() : "$25 BILLION";
+            const isPercent = val.includes("%") || (item.content || "").toLowerCase().includes("percent");
             props = {
               value: val,
-              label: "Apollo Project Investment",
+              label: isPercent ? "Budget Allocation Share" : "Apollo Project Investment",
+              visualType: isPercent ? "ring" : "bar",
+              durationInFrames: Math.max(30, Math.round(dur * fps)),
               subtext: item.content,
               themeColor: "#3b82f6",
             };
@@ -166,6 +169,7 @@ export function timelineToEditorState(
               quote: item.content,
               emphasis: "the impossible was within reach",
               author: "Apollo 11 Retrospective",
+              durationInFrames: Math.max(30, Math.round(dur * fps)),
             };
           }
 

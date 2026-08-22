@@ -1,11 +1,12 @@
 import React from "react";
-import { spring, useCurrentFrame, useVideoConfig } from "remotion";
+import { interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 
 export interface SplitScreenProps {
   leftTitle?: string;
   leftContent?: string;
   rightTitle?: string;
   rightContent?: string;
+  durationInFrames?: number;
   text?: string;
 }
 
@@ -14,10 +15,17 @@ export function SplitScreen({
   leftContent = "High precision, automated execution",
   rightTitle = "Concept B",
   rightContent = "Human verified, custom polished",
+  durationInFrames,
   text,
 }: SplitScreenProps) {
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
+  const videoConfig = useVideoConfig();
+  const fps = videoConfig.fps;
+
+  const totalFrames = Math.max(
+    30,
+    durationInFrames || videoConfig.durationInFrames || 150
+  );
 
   const leftSlide = spring({
     frame,
@@ -31,9 +39,24 @@ export function SplitScreen({
     config: { damping: 14, mass: 0.6, stiffness: 90 },
   });
 
+  const exitStart = Math.floor(totalFrames * 0.88);
+  const exitProgress = interpolate(frame, [exitStart, totalFrames], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
+  const exitOpacity = 1 - exitProgress;
+  const exitScale = interpolate(exitProgress, [0, 1], [1, 0.94]);
+
   return (
     <div className="absolute inset-0 flex items-center justify-center p-8 bg-[#090d16]/90 backdrop-blur-md overflow-hidden">
-      <div className="relative z-10 max-w-4xl w-full grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div
+        style={{
+          transform: `scale(${exitScale})`,
+          opacity: exitOpacity,
+        }}
+        className="relative z-10 max-w-4xl w-full grid grid-cols-1 md:grid-cols-2 gap-6"
+      >
         {/* Left Pane */}
         <div
           style={{

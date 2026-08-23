@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   EditorProjectState,
   editorStateToTimeline,
@@ -46,50 +46,56 @@ export function ExportModal({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
   const [totalRenderTime, setTotalRenderTime] = useState<number | null>(null);
+  
+  const eventSourceRef = useRef<EventSource | null>(null);
+  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Reset state when modal opens
+  const cleanupStreams = () => {
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
+    }
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+  };
+
+  // Reset or initialize state when modal opens
   useEffect(() => {
     if (isOpen) {
-      setIsRendering(false);
-      setProgress(0);
-      setRenderStage("");
-      setRenderEngine(null);
-      setErrorMessage(null);
-      setElapsedSeconds(0);
-      setTotalRenderTime(null);
+      if (!isRendering) {
+        setProgress(0);
+        setRenderStage("");
+        setRenderEngine(null);
+        setErrorMessage(null);
+        setElapsedSeconds(0);
+        setTotalRenderTime(null);
+      }
+    } else {
+      cleanupStreams();
     }
+    return () => {
+      cleanupStreams();
+    };
   }, [isOpen]);
 
   if (!isOpen) return null;
 
   const handleStartRender = async () => {
+    cleanupStreams();
     setIsRendering(true);
-    setProgress(15);
-    setRenderStage("Synthesizing Remotion React motion graphics & typography...");
+    setProgress(5);
+    setRenderStage("Enqueuing video render in background worker...");
     setErrorMessage(null);
     setRenderEngine(null);
     setElapsedSeconds(0);
     setTotalRenderTime(null);
 
     const startTs = Date.now();
-    const elapsedInterval = setInterval(() => {
+    timerIntervalRef.current = setInterval(() => {
       setElapsedSeconds((Date.now() - startTs) / 1000);
     }, 100);
-
-    const progressTimer1 = setTimeout(() => {
-      setProgress(40);
-      setRenderStage("Rendering video sequences, spring physics & particle effects...");
-    }, 1500);
-
-    const progressTimer2 = setTimeout(() => {
-      setProgress(70);
-      setRenderStage("Multiplexing voiceover audio master tracks...");
-    }, 3500);
-
-    const progressTimer3 = setTimeout(() => {
-      setProgress(90);
-      setRenderStage("Encoding final high-fidelity MP4 container...");
-    }, 5500);
 
     try {
       let width = 1280;
@@ -111,68 +117,69 @@ export function ExportModal({
         height = dim;
       }
 
-      // 1. Try High-Fidelity Remotion Native Renderer
-      let videoUrl: string | null = null;
-      let engine: RenderEngineType | null = null;
+      // 1. Enqueue render on backend worker (HTTP request finishes in <20ms)
+      const timelinePayload = editorStateToTimeline(projectState);
+      const res = await api.renderVideo(
+        projectState.jobId,
+        { timeline: timelinePayload },
+        { width, height, fps }
+      );
 
-      try {
-        const remotionRes = await fetch("/api/render", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            projectState,
-            quality,
-            fps,
-          }),
-        });
+      // 2. Connect to real-time Server-Sent Events (SSE) stream for live progress
+      const streamUrl = api.getJobStreamUrl(projectState.jobId);
+      const eventSource = new EventSource(streamUrl);
+      eventSourceRef.current = eventSource;
 
-        if (remotionRes.ok) {
-          const data = await remotionRes.json();
-          videoUrl = data.video_url;
-          engine = data.render_engine || "remotion-native";
-        } else {
-          const errData = await remotionRes.json().catch(() => null);
-          console.warn("Remotion renderer returned error:", errData?.error || remotionRes.statusText);
+      eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.progress?.percent !== undefined) {
+            setProgress(data.progress.percent);
+          }
+          if (data.progress?.message) {
+            setRenderStage(data.progress.message);
+          }
+          if (data.progress?.render_engine) {
+            setRenderEngine(data.progress.render_engine);
+          }
+
+          // Check if export has finalized
+          const isDone =
+            data.progress?.is_rendering === false &&
+            data.progress?.percent === 100 &&
+            Boolean(data.video_url || data.progress?.video_url);
+
+          if (isDone) {
+            const finalElapsed = (Date.now() - startTs) / 1000;
+            setElapsedSeconds(finalElapsed);
+            setTotalRenderTime(finalElapsed);
+            setProgress(100);
+            setRenderStage("Export complete!");
+            setRenderEngine(data.progress?.render_engine || "remotion-native");
+            setRenderedVideoUrl(data.video_url || data.progress?.video_url);
+            setIsRendering(false);
+            cleanupStreams();
+          } else if (data.progress?.error || (data.progress?.is_rendering === false && data.status === "failed")) {
+            setErrorMessage(
+              data.error_message || data.progress?.error || "Rendering failed."
+            );
+            setIsRendering(false);
+            cleanupStreams();
+          }
+        } catch (err) {
+          console.warn("SSE parse error:", err);
         }
-      } catch (e) {
-        console.warn("Remotion render fallback triggered:", e);
-      }
+      };
 
-      // 2. Fallback to Backend Renderer if needed (will refuse motion timelines loudly)
-      if (!videoUrl) {
-        const timelinePayload = editorStateToTimeline(projectState);
-        const res = await api.renderVideo(
-          projectState.jobId,
-          { timeline: timelinePayload },
-          { width, height, fps }
-        );
-        videoUrl = res.video_url;
-        engine = res.render_engine || "ffmpeg-fallback";
-      }
-
-      clearTimeout(progressTimer1);
-      clearTimeout(progressTimer2);
-      clearTimeout(progressTimer3);
-      clearInterval(elapsedInterval);
-
-      const finalElapsed = (Date.now() - startTs) / 1000;
-      setElapsedSeconds(finalElapsed);
-      setTotalRenderTime(finalElapsed);
-
-      setProgress(100);
-      setRenderStage("Export complete!");
-      setRenderEngine(engine);
-      setRenderedVideoUrl(videoUrl);
+      eventSource.onerror = (err) => {
+        console.warn("SSE stream connection issue:", err);
+      };
     } catch (err) {
       console.error("Render failed:", err);
-      clearTimeout(progressTimer1);
-      clearTimeout(progressTimer2);
-      clearTimeout(progressTimer3);
-      clearInterval(elapsedInterval);
+      cleanupStreams();
       setErrorMessage(
         err instanceof Error ? err.message : "Video rendering failed."
       );
-    } finally {
       setIsRendering(false);
     }
   };

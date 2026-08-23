@@ -22,6 +22,19 @@ export type JobStatus =
 
 export type TargetOrientation = "horizontal" | "vertical" | "square" | "any";
 
+export type ColorTreatment =
+  | "none"
+  | "duotone-cool"
+  | "duotone-warm"
+  | "duotone-mono";
+
+export interface FootageEffects {
+  colorTreatment?: ColorTreatment;
+  grain?: boolean;
+  grainIntensity?: number;
+  vignette?: boolean;
+}
+
 export type BeatType = "narrative" | "stat" | "abstract";
 
 export interface Beat {
@@ -95,6 +108,39 @@ export interface AssetPlan {
   items: AssetPlanItem[];
 }
 
+export type LayerRole = "background" | "midground" | "overlay" | "caption";
+
+export type LayoutRole =
+  | "full"
+  | "overlay-lower-third"
+  | "takeover"
+  | "split-left"
+  | "split-right"
+  | "corner-tl"
+  | "corner-tr"
+  | "corner-bl"
+  | "corner-br";
+
+export interface Layer {
+  role: LayerRole;
+  z: number;
+  type: "video" | "image" | "motion" | "text";
+  layout: LayoutRole;
+  chunkId?: string;
+  sourceIn?: number;
+  sourceOut?: number;
+  storagePath?: string;
+  storageUrl?: string;
+  componentId?: string;
+  content?: string;
+  props?: Record<string, unknown>;
+  style?: string;
+}
+
+export interface ResolvedBeatAssetPlan extends AssetPlan {
+  layers?: Layer[];
+}
+
 export interface VideoTrackItem {
   id: string;
   trackStart: number;
@@ -109,6 +155,10 @@ export interface VideoTrackItem {
   props?: Record<string, unknown>;
   rawContent?: string;
   style?: string;
+  zIndex?: number;
+  layerRole?: LayerRole;
+  /** Frontend extension so EditorClip.layoutRole survives round-trips */
+  layoutRole?: LayoutRole;
 }
 
 export interface TextTrackItem {
@@ -119,6 +169,8 @@ export interface TextTrackItem {
   style?: string;
   componentId?: string;
   props?: Record<string, unknown>;
+  zIndex?: number;
+  layerRole?: LayerRole;
 }
 
 export interface AudioTrackItem {
@@ -147,6 +199,7 @@ export interface TimelineJSON {
       voice_clip?: VoiceClip;
       timings?: WordTiming[];
       candidates?: FootageCandidate[];
+      asset_plan?: ResolvedBeatAssetPlan;
     }>;
   };
 }
@@ -214,6 +267,7 @@ export interface JobResponse {
   timeline?: TimelineJSON | null;
   error_message?: string | null;
   progress?: JobProgress | null;
+  video_url?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -222,12 +276,15 @@ export type RenderEngineType = "remotion-native" | "ffmpeg-fallback";
 
 export interface RenderVideoResponse {
   status: string;
+  job_id?: string;
+  message?: string;
+  stream_url?: string;
   render_engine?: RenderEngineType;
-  video_url: string;
-  filename: string;
-  width: number;
-  height: number;
-  fps: number;
+  video_url?: string;
+  filename?: string;
+  width?: number;
+  height?: number;
+  fps?: number;
 }
 
 export const STAGE_CONFIGS: {

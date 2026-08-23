@@ -1,6 +1,8 @@
 import React from "react";
 import { AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig, Easing } from "remotion";
 import { TrendingUp, PieChart } from "lucide-react";
+import { LayoutRole } from "@/lib/types";
+import { resolveDisplay, displayContainerStyle } from "./layoutContract";
 
 export interface StatCardProps {
   value?: string;
@@ -14,12 +16,22 @@ export interface StatCardProps {
   themeColor?: string;
   theme?: string;
   text?: string;
+  layoutRole?: LayoutRole;
+  /** @deprecated use layoutRole */
   mode?: "overlay" | "takeover" | "adaptive";
+  /** @deprecated use layoutRole */
   display_mode?: "overlay" | "takeover";
   secondaryMetric?: { value: string; label: string };
   secondary_metric?: { value: string; label: string };
   chartData?: Array<{ label: string; value: number; highlight?: boolean }>;
 }
+
+/** LayoutRoles this component knows how to render. */
+export const STAT_CARD_SUPPORTED_ROLES: LayoutRole[] = [
+  "full",
+  "takeover",
+  "overlay-lower-third",
+];
 
 export function StatCard({
   value,
@@ -31,6 +43,7 @@ export function StatCard({
   durationInFrames,
   subtext,
   text,
+  layoutRole,
   mode,
   display_mode,
   secondaryMetric,
@@ -50,7 +63,12 @@ export function StatCard({
   const rawValue = (primary_value || value || text?.match(/(\$?\d+(?:\.\d+)?\s*(?:billion|million|thousand|percent|%|k|m|b)?|\d+%)/i)?.[0] || "$25.4B").toUpperCase();
   const rawKicker = kicker || label || "STATISTICAL HIGHLIGHT";
   const rawSubtext = subtext || text || "Representing key metrics and historic scale";
-  const effectiveMode = display_mode || mode || "overlay";
+  // "adaptive" is a legacy no-op — layoutRole decides when present
+  const effectiveMode = resolveDisplay({
+    layoutRole,
+    mode: mode === "adaptive" ? undefined : mode,
+    display_mode,
+  });
   const effectiveSecondary = secondary_metric || secondaryMetric;
 
   // Determine visual type
@@ -157,7 +175,7 @@ export function StatCard({
   // ---------------------------------------------------------------------------
   if (effectiveMode === "overlay") {
     return (
-      <AbsoluteFill style={{ pointerEvents: "none", overflow: "hidden" }}>
+      <AbsoluteFill style={displayContainerStyle("overlay")}>
         {/* Docked Card in Lower Third / Left Quadrant */}
         <div
           style={{

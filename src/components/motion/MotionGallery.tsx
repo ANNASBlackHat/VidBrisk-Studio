@@ -9,6 +9,8 @@ import {
   QuoteCard,
   StandardCard,
   SplitScreen,
+  SwipeDeck,
+  ChatBubbles,
 } from "./registry";
 import { Sparkles, Layers } from "lucide-react";
 
@@ -28,6 +30,14 @@ export function MotionGallery() {
     "Its true value was not measured in dollars, but in proving that the impossible was within reach."
   );
   const [quoteEmphasis, setQuoteEmphasis] = useState("the impossible was within reach");
+
+  const [swipeItemsText, setSwipeItemsText] = useState(
+    "1. Saturn V Launch Stage\n2. Translunar Injection Burn\n3. Lunar Module Descent\n4. Surface Exploration EVA"
+  );
+
+  const [chatMessagesText, setChatMessagesText] = useState(
+    "AI: Houston, all telemetry streams are optimal.\nUser: Copy that. Proceeding with lunar orbital insertion.\nAI: Main propulsion firing initiated for 350 seconds.\nUser: Trajectory lock confirmed."
+  );
 
   const renderSelectedComponent = () => {
     switch (selectedKey) {
@@ -52,6 +62,43 @@ export function MotionGallery() {
             author="Apollo 11 Retrospective"
           />
         );
+      case "ListAnimations/SwipeDeck": {
+        const items = swipeItemsText
+          .split("\n")
+          .map((line) => line.replace(/^\d+[\.\)]\s*/, "").trim())
+          .filter(Boolean);
+        return (
+          <SwipeDeck
+            items={items}
+            durationInFrames={180}
+            themeColor="#38bdf8"
+            title="MISSION TIMELINE"
+            layoutRole="takeover"
+          />
+        );
+      }
+      case "ListAnimations/ChatBubbles": {
+        const messages = chatMessagesText
+          .split("\n")
+          .filter((l) => l.trim())
+          .map((line) => {
+            const isUser = line.toLowerCase().startsWith("user:");
+            const text = line.replace(/^(ai|user|system):\s*/i, "").trim();
+            return {
+              text,
+              sender: isUser ? ("user" as const) : ("system" as const),
+            };
+          });
+        return (
+          <ChatBubbles
+            messages={messages}
+            durationInFrames={180}
+            themeColor="#3b82f6"
+            title="MISSION CONTROL DIALOGUE"
+            layoutRole="takeover"
+          />
+        );
+      }
       case "Layouts/SplitScreen":
         return (
           <SplitScreen
@@ -220,6 +267,30 @@ export function MotionGallery() {
                   className="w-full p-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-200"
                 />
               </div>
+            </div>
+          )}
+
+          {selectedKey === "ListAnimations/SwipeDeck" && (
+            <div>
+              <label className="text-slate-400 block mb-1">Swipe Deck Items (one per line):</label>
+              <textarea
+                rows={5}
+                value={swipeItemsText}
+                onChange={(e) => setSwipeItemsText(e.target.value)}
+                className="w-full p-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-200 font-mono text-xs"
+              />
+            </div>
+          )}
+
+          {selectedKey === "ListAnimations/ChatBubbles" && (
+            <div>
+              <label className="text-slate-400 block mb-1">Chat Messages (format: Sender: Text):</label>
+              <textarea
+                rows={5}
+                value={chatMessagesText}
+                onChange={(e) => setChatMessagesText(e.target.value)}
+                className="w-full p-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-200 font-mono text-xs"
+              />
             </div>
           )}
         </div>

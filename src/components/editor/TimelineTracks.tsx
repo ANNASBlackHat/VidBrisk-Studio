@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import {
   EditorProjectState,
   EditorClip,
@@ -12,8 +12,51 @@ import {
   Sparkles,
   ZoomIn,
   ZoomOut,
+  Layers,
 } from "lucide-react";
 import { formatDuration } from "@/lib/utils";
+
+export const OVERLAP_EPSILON = 0.05;
+
+/**
+ * Groups video-lane clips whose time ranges overlap into stacks (greedy,
+ * ordered by start time). Single-member stacks mean no visual overlap.
+ */
+export function groupOverlappingClips(items: EditorClip[]): EditorClip[][] {
+  const sorted = [...items].sort((a, b) => a.trackStart - b.trackStart);
+  const stacks: EditorClip[][] = [];
+  for (const clip of sorted) {
+    const last = stacks[stacks.length - 1];
+    if (
+      last &&
+      last.some(
+        (c) =>
+          Math.max(c.trackStart, clip.trackStart) <
+          Math.min(c.trackEnd, clip.trackEnd) - OVERLAP_EPSILON
+      )
+    ) {
+      last.push(clip);
+    } else {
+      stacks.push([clip]);
+    }
+  }
+  return stacks;
+}
+
+/** zIndex-ascending sort with stable fallback for untagged clips. */
+export function sortByZIndex(clips: EditorClip[]): EditorClip[] {
+  return [...clips].sort(
+    (a, b) =>
+      (a.zIndex ?? Number.MAX_SAFE_INTEGER) - (b.zIndex ?? Number.MAX_SAFE_INTEGER)
+  );
+}
+
+function getLayerLabel(clip: EditorClip): string {
+  if (clip.assetType === "motion") {
+    return clip.componentId?.split("/")[1] || "Motion Card";
+  }
+  return clip.content || clip.storageUrl || clip.id;
+}
 
 interface TimelineTracksProps {
   projectState: EditorProjectState;
@@ -35,9 +78,23 @@ export function TimelineTracks({
 }: TimelineTracksProps) {
   const timelineRef = useRef<HTMLDivElement>(null);
   const totalDuration = Math.max(1, projectState.totalDuration);
+  const [expandedStackId, setExpandedStackId] = useState<string | null>(null);
+
+  // Multi-layer stacks within the video lane, keyed by their anchor clip.
+  const videoStacks = useMemo(() => {
+    const items =
+      projectState.tracks.find((t) => t.id === "video")?.items || [];
+    return groupOverlappingClips(items)
+      .filter((s) => s.length > 1)
+      .map((layers) => {
+        const anchor = [...layers].sort((a, b) => a.trackStart - b.trackStart)[0];
+        return { id: anchor.id, anchor, layers: sortByZIndex(layers) };
+      });
+  }, [projectState.tracks]);
 
   const handleTimelineClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!timelineRef.current) return;
+    setExpandedStackId(null);
     const rect = timelineRef.current.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
     const percentage = Math.max(0, Math.min(1, clickX / rect.width));
@@ -180,44 +237,123 @@ export function TimelineTracks({
           </div>
 
           {/* Track Lanes */}
-          {projectState.tracks.map((track) => (
-            <div
-              key={track.id}
-              className="h-14 border-b border-slate-800/60 relative bg-slate-950/40"
-            >
-              {track.items.map((clip) => {
-                const isSelected = projectState.selectedClipId === clip.id;
-                const { left, width, className } = getClipStyle(clip, isSelected);
+          {projectState.tracks.map((track) => {
+            const isVideoLane = track.id === "video";
+            const laneStacks = isVideoLane ? videoStacks : [];
+            const stackedClipIds = new Set(
+              laneStacks.flatMap((s) => s.layers.map((l) => l.id))
+            );
 
-                return (
-                  <div
-                    key={clip.id}
-                    style={{ left, width }}
-                    className={className}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onSelectClip(clip.id);
-                    }}
-                  >
-                    <div className="flex items-center gap-1.5 truncate">
-                      {clip.assetType === "motion" && (
-                        <Sparkles className="w-3 h-3 text-purple-300 shrink-0" />
-                      )}
-                      <span className="truncate font-semibold text-[11px]">
-                        {clip.assetType === "motion"
-                          ? clip.componentId?.split("/")[1] || "Motion Card"
-                          : clip.content || clip.id}
+            return (
+              <div
+                key={track.id}
+                className="h-14 border-b border-slate-800/60 relative bg-slate-950/40"
+              >
+                {track.items.map((clip) => {
+                  const isSelected = projectState.selectedClipId === clip.id;
+                  const { left, width, className } = getClipStyle(clip, isSelected);
+
+                  return (
+                    <div
+                      key={clip.id}
+                      style={{ left, width }}
+                      className={className}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSelectClip(clip.id);
+                      }}
+                    >
+                      <div className="flex items-center gap-1.5 truncate">
+                        {clip.assetType === "motion" && (
+                          <Sparkles className="w-3 h-3 text-purple-300 shrink-0" />
+                        )}
+                        {stackedClipIds.has(clip.id) && (
+                          <Layers className="w-3 h-3 text-cyan-300 shrink-0" />
+                        )}
+                        <span className="truncate font-semibold text-[11px]">
+                          {getLayerLabel(clip)}
+                        </span>
+                      </div>
+
+                      <span className="text-[10px] opacity-75 shrink-0 ml-1">
+                        {clip.duration.toFixed(1)}s
                       </span>
                     </div>
+                  );
+                })}
 
-                    <span className="text-[10px] opacity-75 shrink-0 ml-1">
-                      {clip.duration.toFixed(1)}s
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          ))}
+                {/* Stacked-layer badge + expandable layer picker (video lane only) */}
+                {laneStacks.map((stack) => {
+                  const stackLeftPct =
+                    (stack.anchor.trackStart / totalDuration) * 100;
+                  const isExpanded = expandedStackId === stack.id;
+                  const containsSelected = stack.layers.some(
+                    (l) => l.id === projectState.selectedClipId
+                  );
+
+                  return (
+                    <React.Fragment key={stack.id}>
+                      <button
+                        type="button"
+                        style={{ left: `${stackLeftPct}%` }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setExpandedStackId(isExpanded ? null : stack.id);
+                        }}
+                        className={`absolute -top-1.5 z-40 flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-mono font-bold border transition-all ${
+                          isExpanded || containsSelected
+                            ? "bg-cyan-500 text-slate-950 border-cyan-300 shadow-md shadow-cyan-500/30"
+                            : "bg-slate-800 text-cyan-300 border-slate-600 hover:bg-slate-700"
+                        }`}
+                        title={`${stack.layers.length} stacked layers`}
+                      >
+                        <Layers className="w-2.5 h-2.5" />+{stack.layers.length - 1}
+                      </button>
+
+                      {isExpanded && (
+                        <div
+                          style={{ left: `${Math.max(0, stackLeftPct - 2)}%` }}
+                          className="absolute top-full mt-1 z-50 w-64 rounded-xl border border-slate-700 bg-slate-900 shadow-2xl overflow-hidden"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="px-3 py-1.5 text-[9px] uppercase tracking-wider font-mono text-slate-500 border-b border-slate-800 bg-slate-900/80 flex items-center gap-1.5">
+                            <Layers className="w-3 h-3 text-cyan-400" />
+                            Layer Stack · back → front
+                          </div>
+                          {stack.layers.map((layer, idx) => {
+                            const isSelectedLayer =
+                              layer.id === projectState.selectedClipId;
+                            return (
+                              <button
+                                key={layer.id}
+                                type="button"
+                                onClick={() => onSelectClip(layer.id)}
+                                className={`w-full flex items-center gap-2 px-3 py-2 text-left text-[11px] font-mono transition-colors ${
+                                  isSelectedLayer
+                                    ? "bg-cyan-950/60 text-cyan-200"
+                                    : "text-slate-300 hover:bg-slate-800"
+                                } ${idx > 0 ? "border-t border-slate-800/60" : ""}`}
+                              >
+                                <span className="text-[9px] px-1 py-0.5 rounded bg-slate-800 text-slate-400 shrink-0">
+                                  z{layer.zIndex ?? "?"}
+                                </span>
+                                <span className="truncate">
+                                  {layer.layoutRole || layer.assetType}
+                                </span>
+                                <span className="truncate text-slate-500 ml-auto max-w-[45%]">
+                                  {getLayerLabel(layer)}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

@@ -5,6 +5,10 @@ import {
   AudioTrackItem,
   FootageCandidate,
   TargetOrientation,
+  Layer,
+  LayoutRole,
+  WordTiming,
+  FootageEffects,
 } from "@/lib/types";
 
 export interface EditorClip {
@@ -25,12 +29,18 @@ export interface EditorClip {
   props?: Record<string, unknown>;
   rawContent?: string;
   style?: string;
+  effects?: FootageEffects;
 
   // Text specific
   content?: string;
 
-  // Metadata & Alternative Candidates
+  // Multi-layer composition
+  zIndex?: number;
+  layoutRole?: LayoutRole;
+
+  // Metadata, Timings & Alternative Candidates
   beatId?: string;
+  timings?: WordTiming[];
   candidates?: FootageCandidate[];
 }
 
@@ -88,6 +98,105 @@ export function timelineToEditorState(
 
   const candidatesMap = timeline.metadata?.footage_candidates || {};
 
+  // Build beatId -> WordTiming[] and beatId -> Layer[] lookup from timeline.metadata.resolved_beats
+  const resolvedBeats = timeline.metadata?.resolved_beats || [];
+  const timingsByBeat = new Map<string, WordTiming[]>();
+  const layersByBeat = new Map<string, Layer[]>();
+  for (const rb of resolvedBeats) {
+    if (rb.beat?.id && rb.timings && rb.timings.length > 0) {
+      timingsByBeat.set(rb.beat.id, rb.timings);
+    }
+    const layers = rb.asset_plan?.layers;
+    if (rb.beat?.id && layers && layers.length > 0) {
+      layersByBeat.set(rb.beat.id, layers);
+    }
+  }
+
+  // Each beat's on-timeline window, derived from its own track items so
+  // layer-based clips can be placed at the right time. Falls back to
+  // cumulative voice_clip durations when no track items reference the beat.
+  const beatWindows = new Map<string, { start: number; end: number }>();
+  if (layersByBeat.size > 0) {
+    const expandWindow = (
+      beatId: string | undefined,
+      start?: number,
+      end?: number
+    ) => {
+      if (!beatId || !layersByBeat.has(beatId)) return;
+      if (start == null || end == null) return;
+      const w = beatWindows.get(beatId);
+      beatWindows.set(beatId, {
+        start: Math.min(w?.start ?? start, start),
+        end: Math.max(w?.end ?? end, end),
+      });
+    };
+
+    for (const track of timeline.tracks || []) {
+      for (const rawItem of track.items || []) {
+        const anyItem = rawItem as VideoTrackItem;
+        expandWindow(
+          anyItem.id.match(/b\d+/)?.[0],
+          anyItem.trackStart,
+          anyItem.trackEnd
+        );
+      }
+    }
+
+    let cursor = 0;
+    for (const rb of resolvedBeats) {
+      const beatId = rb.beat?.id;
+      const dur = Math.max(0.1, rb.voice_clip?.duration_sec || 0);
+      if (!beatId || !layersByBeat.has(beatId)) {
+        cursor += dur;
+        continue;
+      }
+      if (!beatWindows.has(beatId) && rb.voice_clip?.duration_sec) {
+        beatWindows.set(beatId, { start: cursor, end: cursor + dur });
+      }
+      cursor += dur;
+    }
+  }
+
+  const layerAssetType = (type: Layer["type"]): "video" | "image" | "motion" =>
+    type === "video" ? "video" : type === "image" ? "image" : "motion";
+
+  const pushLayerClips = (beatId: string): boolean => {
+    const layers = layersByBeat.get(beatId);
+    const window = beatWindows.get(beatId);
+    if (!layers || !window || window.end - window.start <= 0) return false;
+
+    const dur = Math.max(0.1, window.end - window.start);
+    [...layers]
+      .sort((a, b) => a.z - b.z)
+      .forEach((layer, i) => {
+        videoItems.push({
+          id: `${beatId}_layer${i}`,
+          trackId: "video",
+          trackStart: window.start,
+          trackEnd: window.end,
+          duration: dur,
+          assetType: layerAssetType(layer.type),
+          sourceIn: layer.sourceIn ?? 0,
+          sourceOut: layer.sourceOut ?? dur,
+          storagePath: layer.storagePath,
+          storageUrl: layer.storageUrl || layer.storagePath,
+          componentId: layer.componentId,
+          props: layer.props || {},
+          rawContent: layer.content,
+          style: layer.style,
+          content: layer.content,
+          zIndex: layer.z,
+          layoutRole: layer.layout,
+          beatId,
+          candidates: candidatesMap[beatId],
+          timings: timingsByBeat.get(beatId),
+          effects: (layer.props?.effects as FootageEffects | undefined) || undefined,
+        });
+      });
+    return true;
+  };
+  // --------------------------------------------------------------------------
+
   for (const track of timeline.tracks || []) {
     if (track.type === "video") {
       for (const rawItem of track.items || []) {
@@ -97,6 +206,11 @@ export function timelineToEditorState(
         // Extract beatId e.g. from id 'clip_b1' or 'b1_motion'
         const match = item.id.match(/b\d+/);
         const beatId = match ? match[0] : undefined;
+
+        // Layered beats are fully described by their layers[] — skip the
+        // original flat items to avoid duplicate rendering.
+        if (beatId && layersByBeat.has(beatId)) continue;
+
         const beatCandidates = beatId ? candidatesMap[beatId] : undefined;
 
         videoItems.push({
@@ -115,14 +229,23 @@ export function timelineToEditorState(
           props: item.props || {},
           rawContent: item.rawContent,
           style: item.style,
+          zIndex: item.zIndex,
           beatId,
           candidates: beatCandidates,
+          timings: beatId ? timingsByBeat.get(beatId) : undefined,
+          effects: (item.props?.effects as FootageEffects | undefined) || undefined,
         });
       }
     } else if (track.type === "text") {
       for (const rawItem of track.items || []) {
         const item = rawItem as TextTrackItem;
         const dur = Math.max(0.1, (item.trackEnd || 0) - (item.trackStart || 0));
+
+        // Layered beats bypass the overlap/regex promotion heuristics —
+        // their text layers are emitted directly from asset_plan.layers.
+        const textBeatId = item.id.match(/b\d+/)?.[0];
+        if (textBeatId && layersByBeat.has(textBeatId)) continue;
+        const beatTimings = textBeatId ? timingsByBeat.get(textBeatId) : undefined;
 
         // Check if there is already a video clip covering this time segment
         const hasOverlappingVideo = videoItems.some(
@@ -190,6 +313,8 @@ export function timelineToEditorState(
             props,
             rawContent: item.content,
             style: item.style,
+            beatId: textBeatId,
+            timings: beatTimings,
           });
         } else {
           textItems.push({
@@ -200,6 +325,8 @@ export function timelineToEditorState(
             duration: dur,
             content: item.content,
             style: item.style,
+            beatId: textBeatId,
+            timings: beatTimings,
           });
         }
       }
@@ -219,8 +346,15 @@ export function timelineToEditorState(
     }
   }
 
-  // Sort track items by start time
-  videoItems.sort((a, b) => a.trackStart - b.trackStart);
+  // Emit layer-based clips for layered beats (after legacy items so that
+  // any beat without a derivable window keeps its legacy clips untouched).
+  for (const beatId of Array.from(layersByBeat.keys())) {
+    pushLayerClips(beatId);
+  }
+
+  // Sort by start time; ties broken by zIndex (render order = stacking order).
+  const zOf = (c: EditorClip) => (c.zIndex == null ? Number.MAX_SAFE_INTEGER : c.zIndex);
+  videoItems.sort((a, b) => a.trackStart - b.trackStart || zOf(a) - zOf(b));
   textItems.sort((a, b) => a.trackStart - b.trackStart);
   audioItems.sort((a, b) => a.trackStart - b.trackStart);
 
@@ -280,6 +414,8 @@ export function editorStateToTimeline(state: EditorProjectState): TimelineJSON {
     props: item.props,
     rawContent: item.rawContent,
     style: item.style,
+    zIndex: item.zIndex,
+    layoutRole: item.layoutRole,
   }));
 
   const textItems: TextTrackItem[] = (textTrack?.items || []).map((item) => ({

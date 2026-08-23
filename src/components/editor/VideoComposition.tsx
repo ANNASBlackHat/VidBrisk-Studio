@@ -3,6 +3,7 @@ import {
   AbsoluteFill,
   Sequence,
   Video,
+  OffthreadVideo,
   Audio,
   useVideoConfig,
   useCurrentFrame,
@@ -10,24 +11,107 @@ import {
 } from "remotion";
 import { EditorProjectState, EditorClip } from "@/adapters/timelineToEditorState";
 import { getMotionComponent } from "@/components/motion/registry";
+import { LayoutRole, ColorTreatment, FootageEffects } from "@/lib/types";
 import { resolveMediaUrl } from "@/lib/utils";
 
 export interface VideoCompositionProps {
   projectState: EditorProjectState;
 }
 
-const FootageClip: React.FC<{
+/**
+ * Maps a ColorTreatment enum value to its corresponding CSS filter string.
+ */
+export function getColorTreatmentFilter(treatment?: ColorTreatment): string | undefined {
+  switch (treatment) {
+    case "duotone-cool":
+      return "grayscale(1) contrast(1.1) sepia(0.3) hue-rotate(180deg) saturate(1.4)";
+    case "duotone-warm":
+      return "grayscale(1) contrast(1.1) sepia(0.3) hue-rotate(-20deg) saturate(1.4)";
+    case "duotone-mono":
+      return "grayscale(1) contrast(1.15)";
+    case "none":
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * Roles that float above base footage: rendered transparently with pointer
+ * events disabled so editor clicks reach the layer beneath.
+ */
+const OVERLAY_ROLES: LayoutRole[] = [
+  "overlay-lower-third",
+  "corner-tl",
+  "corner-tr",
+  "corner-bl",
+  "corner-br",
+];
+
+const isOverlayRole = (item: EditorClip): boolean =>
+  item.layoutRole ? OVERLAY_ROLES.includes(item.layoutRole) : false;
+
+/**
+ * Geometry applied by the composition to non-motion layers (raw footage has
+ * no layout concept of its own). Motion components consume `layoutRole`
+ * directly and position themselves.
+ *
+ * Every mapping must explicitly neutralize opposing edges ("auto") because
+ * these styles are merged OVER AbsoluteFill's default `inset: 0`.
+ */
+export const layerGeometry = (role?: LayoutRole): React.CSSProperties => {
+  switch (role) {
+    case "split-left":
+      return { position: "absolute", top: 0, bottom: 0, left: 0, right: "auto", width: "50%", height: "auto" };
+    case "split-right":
+      return { position: "absolute", top: 0, bottom: 0, left: "auto", right: 0, width: "50%", height: "auto" };
+    case "corner-tl":
+      return { position: "absolute", left: "4%", top: "6%", right: "auto", bottom: "auto", width: "30%", height: "30%" };
+    case "corner-tr":
+      return { position: "absolute", right: "4%", top: "6%", left: "auto", bottom: "auto", width: "30%", height: "30%" };
+    case "corner-bl":
+      return { position: "absolute", left: "4%", bottom: "6%", right: "auto", top: "auto", width: "30%", height: "30%" };
+    case "corner-br":
+      return { position: "absolute", right: "4%", bottom: "6%", left: "auto", top: "auto", width: "30%", height: "30%" };
+    case "overlay-lower-third":
+      return { position: "absolute", left: 0, right: 0, bottom: 0, top: "auto", height: "34%", width: "auto" };
+    default:
+      // "full" / "takeover" / undefined — opaque full-bleed
+      return {};
+  }
+};
+
+export interface FootageClipProps {
   resolvedUrl: string;
   startFromFrames: number;
   durationFrames: number;
-}> = ({ resolvedUrl, startFromFrames, durationFrames }) => {
+  containerStyle?: React.CSSProperties;
+  effects?: FootageEffects;
+}
+
+export const FootageClip: React.FC<FootageClipProps> = ({
+  resolvedUrl,
+  startFromFrames,
+  durationFrames,
+  containerStyle,
+  effects,
+}) => {
   const frame = useCurrentFrame();
   const scale = interpolate(frame, [0, durationFrames], [1.0, 1.05], {
     extrapolateRight: "clamp",
   });
 
+  const filter = getColorTreatmentFilter(effects?.colorTreatment);
+
+  const entranceWindow = Math.max(1, Math.floor(durationFrames * 0.15));
+  const vignetteDarkness = interpolate(
+    frame,
+    [0, entranceWindow, durationFrames],
+    [0.6, 0.45, 0.4],
+    { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
+  );
+
   return (
-    <AbsoluteFill style={{ backgroundColor: "#000000", overflow: "hidden" }}>
+    <AbsoluteFill style={{ backgroundColor: "#000000", overflow: "hidden", ...containerStyle }}>
       <Video
         src={resolvedUrl}
         startFrom={startFromFrames}
@@ -36,9 +120,33 @@ const FootageClip: React.FC<{
           height: "100%",
           objectFit: "cover",
           scale: `${scale}`,
+          filter,
         }}
         volume={0} // Mute raw footage audio to give full clarity to Voiceover
       />
+
+      {effects?.grain && (
+        <AbsoluteFill
+          data-testid="footage-grain"
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
+            backgroundRepeat: "repeat",
+            opacity: effects.grainIntensity ?? 0.15,
+            mixBlendMode: "overlay",
+            pointerEvents: "none",
+          }}
+        />
+      )}
+
+      {effects?.vignette && (
+        <AbsoluteFill
+          data-testid="footage-vignette"
+          style={{
+            background: `radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, ${vignetteDarkness}) 100%)`,
+            pointerEvents: "none",
+          }}
+        />
+      )}
     </AbsoluteFill>
   );
 };
@@ -50,7 +158,10 @@ export function VideoComposition({ projectState }: VideoCompositionProps) {
   const textTrack = projectState.tracks.find((t) => t.id === "text");
   const audioTrack = projectState.tracks.find((t) => t.id === "audio");
 
-  const renderVideoItem = (item: EditorClip) => {
+  // Renders one visual layer. Multiple items with overlapping
+  // trackStart/trackEnd coexist by design — stacking order follows the
+  // video track's item order (zIndex-sorted by the adapter).
+  const renderLayer = (item: EditorClip) => {
     const fromFrame = Math.max(0, Math.round(item.trackStart * fps));
     const durationFrames = Math.max(1, Math.round(item.duration * fps));
 
@@ -63,10 +174,12 @@ export function VideoComposition({ projectState }: VideoCompositionProps) {
           durationInFrames={durationFrames}
           name={item.id}
         >
-          <AbsoluteFill>
+          <AbsoluteFill style={{ pointerEvents: isOverlayRole(item) ? "none" : undefined }}>
             <MotionComp
               {...(item.props || {})}
               durationInFrames={durationFrames}
+              layoutRole={item.layoutRole}
+              timings={item.timings || (item.props?.timings as never)}
               text={
                 typeof item.props?.text === "string"
                   ? item.props.text
@@ -78,10 +191,11 @@ export function VideoComposition({ projectState }: VideoCompositionProps) {
       );
     }
 
-    // Video / Footage Clip
+    // Video / Footage Clip (or image layer)
     const rawUrl = item.storageUrl || item.storagePath;
     const resolvedUrl = resolveMediaUrl(rawUrl);
     const startFromFrames = Math.max(0, Math.round((item.sourceIn || 0) * fps));
+    const geometry = layerGeometry(item.layoutRole);
 
     if (!resolvedUrl) {
       return (
@@ -91,7 +205,7 @@ export function VideoComposition({ projectState }: VideoCompositionProps) {
           durationInFrames={durationFrames}
           name={item.id}
         >
-          <AbsoluteFill style={{ backgroundColor: "#0f172a", justifyContent: "center", alignItems: "center" }}>
+          <AbsoluteFill style={{ backgroundColor: "#0f172a", justifyContent: "center", alignItems: "center", ...geometry, pointerEvents: isOverlayRole(item) ? "none" : undefined }}>
             <span className="text-slate-400 font-mono text-sm">No footage media source</span>
           </AbsoluteFill>
         </Sequence>
@@ -109,6 +223,8 @@ export function VideoComposition({ projectState }: VideoCompositionProps) {
           resolvedUrl={resolvedUrl}
           startFromFrames={startFromFrames}
           durationFrames={durationFrames}
+          containerStyle={{ ...geometry, pointerEvents: isOverlayRole(item) ? "none" : undefined }}
+          effects={item.effects}
         />
       </Sequence>
     );
@@ -165,8 +281,8 @@ export function VideoComposition({ projectState }: VideoCompositionProps) {
 
   return (
     <AbsoluteFill style={{ backgroundColor: "#090d16", overflow: "hidden" }}>
-      {/* 1. Video & Motion Track Layer */}
-      {videoTrack?.items.map((item) => renderVideoItem(item))}
+      {/* 1. Video & Motion Layers — zIndex-sorted, overlapping by design */}
+      {videoTrack?.items.map((item) => renderLayer(item))}
 
       {/* 2. Text / Captions Overlay Layer */}
       {textTrack?.items.map((item) => renderTextItem(item))}

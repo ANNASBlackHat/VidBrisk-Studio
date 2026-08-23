@@ -1,25 +1,42 @@
 import React from "react";
 import { AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
+import { LayoutRole } from "@/lib/types";
+import { resolveDisplay, displayContainerStyle } from "./layoutContract";
 
 export interface StandardCardProps {
   text?: string;
   title?: string;
   durationInFrames?: number;
+  layoutRole?: LayoutRole;
+  /** @deprecated use layoutRole */
   mode?: "overlay" | "takeover";
+  /** @deprecated use layoutRole */
   display_mode?: "overlay" | "takeover";
 }
+
+/** LayoutRoles this component knows how to render. */
+export const STANDARD_CARD_SUPPORTED_ROLES: LayoutRole[] = [
+  "full",
+  "takeover",
+  "overlay-lower-third",
+  "corner-tl",
+  "corner-tr",
+  "corner-bl",
+  "corner-br",
+];
 
 export function StandardCard({
   text = "Standard narration text card overlay.",
   title = "NARRATION OVERVIEW",
   durationInFrames,
+  layoutRole,
   mode,
   display_mode,
 }: StandardCardProps) {
   const frame = useCurrentFrame();
   const videoConfig = useVideoConfig();
   const fps = videoConfig.fps;
-  const effectiveMode = display_mode || mode || "overlay";
+  const effectiveMode = resolveDisplay({ layoutRole, mode, display_mode });
 
   const totalFrames = Math.max(
     30,
@@ -60,11 +77,11 @@ export function StandardCard({
   const translateY = entranceTranslateY + exitTranslateY;
 
   // ---------------------------------------------------------------------------
-  // OVERLAY MODE (Docked Lower-Third Card)
+  // OVERLAY MODE (Docked Lower-Third Card) — transparent, click-through
   // ---------------------------------------------------------------------------
   if (effectiveMode === "overlay") {
     return (
-      <AbsoluteFill style={{ pointerEvents: "none", overflow: "hidden" }}>
+      <AbsoluteFill style={displayContainerStyle("overlay")}>
         <div
           style={{
             position: "absolute",

@@ -15,6 +15,7 @@
 
 # production
 /build
+/.remotion-bundle
 
 # misc
 .DS_Store

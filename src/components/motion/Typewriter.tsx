@@ -1,5 +1,7 @@
 import React from "react";
 import { interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { LayoutRole } from "@/lib/types";
+import { displayContainerStyle } from "./layoutContract";
 
 export interface TypewriterProps {
   text?: string;
@@ -7,12 +9,19 @@ export interface TypewriterProps {
   charactersPerSecond?: number;
   highlightWords?: string[];
   durationInFrames?: number;
+  layoutRole?: LayoutRole;
 }
+
+/** LayoutRoles this component knows how to render — always a caption overlay. */
+export const TYPEWRITER_SUPPORTED_ROLES: LayoutRole[] = [
+  "overlay-lower-third",
+];
 
 export function Typewriter({
   text = "In July 1969, humanity embarked on its most daring voyage...",
   charactersPerSecond = 24,
   durationInFrames,
+  layoutRole,
 }: TypewriterProps) {
   const frame = useCurrentFrame();
   const videoConfig = useVideoConfig();
@@ -50,7 +59,12 @@ export function Typewriter({
   const cardOpacity = entranceOpacity * exitOpacity;
 
   return (
-    <div className="absolute inset-0 flex items-center justify-center p-8 bg-[#090d16]/85 backdrop-blur-md overflow-hidden">
+    <div
+      className={`absolute inset-0 flex items-center justify-center p-8 overflow-hidden ${
+        layoutRole ? "" : "bg-[#090d16]/85 backdrop-blur-md"
+      }`}
+      style={layoutRole ? displayContainerStyle("overlay") : { overflow: "hidden" }}
+    >
       {/* Background ambient lighting */}
       <div className="absolute w-[600px] h-[400px] rounded-full bg-blue-600/15 blur-[120px] pointer-events-none" />
 

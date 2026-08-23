@@ -21,6 +21,9 @@ interface ClipInspectorProps {
   onUpdateClipTiming: (clipId: string, sourceIn: number, sourceOut: number) => void;
   onSwapCandidate: (clipId: string, candidateIndex: number) => void;
   onDeleteClip: (clipId: string) => void;
+  /** zIndex-ordered layers overlapping the selected clip (multi-layer only) */
+  layerStack?: EditorClip[];
+  onSelectLayer?: (clipId: string) => void;
 }
 
 export function ClipInspector({
@@ -29,6 +32,8 @@ export function ClipInspector({
   onUpdateClipTiming,
   onSwapCandidate,
   onDeleteClip,
+  layerStack,
+  onSelectLayer,
 }: ClipInspectorProps) {
   if (!selectedClip) {
     return (
@@ -79,6 +84,49 @@ export function ClipInspector({
           <Trash2 className="w-3.5 h-3.5" />
         </button>
       </div>
+
+      {/* Layer Stack Picker (multi-layer clips only) */}
+      {layerStack && layerStack.length > 1 && onSelectLayer && (
+        <div className="flex flex-col gap-2 p-3.5 rounded-xl bg-cyan-950/20 border border-cyan-900/40">
+          <span className="font-semibold uppercase tracking-wider text-[10px] text-slate-400 flex items-center gap-1.5">
+            <Layers className="w-3 h-3 text-cyan-400" />
+            <span>Layer Stack · {layerStack.length} layers</span>
+          </span>
+
+          <div className="flex flex-col gap-1 mt-1">
+            {layerStack.map((layer) => {
+              const isSelectedLayer = layer.id === selectedClip.id;
+              return (
+                <button
+                  key={layer.id}
+                  type="button"
+                  onClick={() => onSelectLayer(layer.id)}
+                  className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[11px] font-mono text-left transition-colors border ${
+                    isSelectedLayer
+                      ? "bg-cyan-950/70 border-cyan-700/60 text-cyan-200"
+                      : "bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-600"
+                  }`}
+                >
+                  <span className="text-[9px] px-1 py-0.5 rounded bg-slate-800 shrink-0">
+                    z{layer.zIndex ?? "?"}
+                  </span>
+                  <span className="truncate">
+                    {layer.layoutRole || layer.assetType || layer.trackId}
+                  </span>
+                  <span className="truncate text-slate-500 ml-auto max-w-[45%]">
+                    {layer.assetType === "motion"
+                      ? layer.componentId?.split("/")[1]
+                      : layer.content || layer.storageUrl || layer.id}
+                  </span>
+                </button>
+              );
+            })}
+            <span className="text-[9px] text-slate-500 font-mono pt-0.5">
+              Sorted back → front by z-index
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Timing Inspector */}
       <div className="flex flex-col gap-2 p-3.5 rounded-xl bg-slate-950/80 border border-slate-800/80">
@@ -213,7 +261,96 @@ export function ClipInspector({
             </>
           )}
 
-          {/* Typewriter / QuoteCard generic text */}
+          {/* KineticText specific fields */}
+          {selectedClip.componentId?.includes("KineticText") && (
+            <>
+              <div>
+                <label className="text-[11px] text-slate-400 block mb-1">
+                  Animation Mode:
+                </label>
+                <div className="grid grid-cols-2 gap-1.5 font-mono text-[11px]">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onUpdateClipProps(selectedClip.id, {
+                        ...selectedClip.props,
+                        mode: "reveal",
+                      })
+                    }
+                    className={`py-1.5 px-2 rounded-lg font-medium transition-all ${
+                      (selectedClip.props?.mode || "reveal") === "reveal"
+                        ? "bg-purple-600 text-white shadow-sm"
+                        : "bg-slate-900 text-slate-400 border border-slate-800 hover:text-slate-200"
+                    }`}
+                  >
+                    Speech Reveal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onUpdateClipProps(selectedClip.id, {
+                        ...selectedClip.props,
+                        mode: "karaoke",
+                      })
+                    }
+                    className={`py-1.5 px-2 rounded-lg font-medium transition-all ${
+                      selectedClip.props?.mode === "karaoke"
+                        ? "bg-purple-600 text-white shadow-sm"
+                        : "bg-slate-900 text-slate-400 border border-slate-800 hover:text-slate-200"
+                    }`}
+                  >
+                    Karaoke Sync
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[11px] text-slate-400 block mb-1">
+                  Accent Color:
+                </label>
+                <div className="flex items-center gap-2">
+                  {["#38bdf8", "#a855f7", "#10b981", "#f59e0b", "#ec4899"].map((color) => (
+                    <button
+                      key={color}
+                      type="button"
+                      onClick={() =>
+                        onUpdateClipProps(selectedClip.id, {
+                          ...selectedClip.props,
+                          themeColor: color,
+                        })
+                      }
+                      className="w-6 h-6 rounded-full border-2 transition-transform hover:scale-110"
+                      style={{
+                        backgroundColor: color,
+                        borderColor:
+                          (selectedClip.props?.themeColor || "#38bdf8") === color
+                            ? "#ffffff"
+                            : "transparent",
+                      }}
+                      title={color}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div className="p-2 rounded-lg bg-slate-900/90 border border-slate-800 flex items-center justify-between text-[10px] font-mono">
+                <span className="text-slate-400">Word Timing Sync:</span>
+                <span
+                  className={
+                    selectedClip.timings && selectedClip.timings.length > 0
+                      ? "text-emerald-400 font-semibold"
+                      : "text-amber-400"
+                  }
+                >
+                  {selectedClip.timings && selectedClip.timings.length > 0
+                    ? `✓ ${selectedClip.timings.length} words synced`
+                    : "Synthetic fallback"}
+                </span>
+              </div>
+            </>
+          )}
+
+          {/* Typewriter / QuoteCard / KineticText generic text */}
           {!selectedClip.componentId?.includes("StatCard") && (
             <div>
               <label className="text-[11px] text-slate-400 block mb-1">

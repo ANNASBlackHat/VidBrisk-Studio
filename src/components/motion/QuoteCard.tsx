@@ -1,6 +1,8 @@
 import React from "react";
 import { AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import { Quote } from "lucide-react";
+import { LayoutRole } from "@/lib/types";
+import { resolveDisplay, displayContainerStyle } from "./layoutContract";
 
 export interface QuoteCardProps {
   quote?: string;
@@ -8,9 +10,19 @@ export interface QuoteCardProps {
   author?: string | null;
   durationInFrames?: number;
   text?: string;
+  layoutRole?: LayoutRole;
+  /** @deprecated use layoutRole */
   mode?: "overlay" | "takeover";
+  /** @deprecated use layoutRole */
   display_mode?: "overlay" | "takeover";
 }
+
+/** LayoutRoles this component knows how to render. */
+export const QUOTE_CARD_SUPPORTED_ROLES: LayoutRole[] = [
+  "full",
+  "takeover",
+  "overlay-lower-third",
+];
 
 export function QuoteCard({
   quote,
@@ -18,6 +30,7 @@ export function QuoteCard({
   author = "Historic Transmission",
   durationInFrames,
   text,
+  layoutRole,
   mode,
   display_mode,
 }: QuoteCardProps) {
@@ -25,7 +38,7 @@ export function QuoteCard({
   const frame = useCurrentFrame();
   const videoConfig = useVideoConfig();
   const fps = videoConfig.fps;
-  const effectiveMode = display_mode || mode || "overlay";
+  const effectiveMode = resolveDisplay({ layoutRole, mode, display_mode });
 
   const totalFrames = Math.max(
     30,
@@ -105,7 +118,7 @@ export function QuoteCard({
   // ---------------------------------------------------------------------------
   if (effectiveMode === "overlay") {
     return (
-      <AbsoluteFill style={{ pointerEvents: "none", overflow: "hidden" }}>
+      <AbsoluteFill style={displayContainerStyle("overlay")}>
         <div
           style={{
             position: "absolute",

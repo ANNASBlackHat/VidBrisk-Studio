@@ -158,7 +158,7 @@ export const api = {
   },
 
   /**
-   * Render timeline to standalone MP4 via FFmpeg engine
+   * Render timeline to standalone MP4 via async background worker
    */
   async renderVideo(
     jobId: string,
@@ -178,6 +178,13 @@ export const api = {
         body: JSON.stringify(payload),
       }
     );
+  },
+
+  /**
+   * Get Server-Sent Events (SSE) stream URL for real-time progress
+   */
+  getJobStreamUrl(jobId: string): string {
+    return `${API_BASE_URL}/jobs/${jobId}/stream`;
   },
 
   /**

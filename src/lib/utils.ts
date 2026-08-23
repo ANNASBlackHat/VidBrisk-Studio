@@ -44,28 +44,15 @@ export function formatDate(dateString: string): string {
   }
 }
 
-/**
- * Resolves local file paths and remote media URLs through the proxy API
- * to ensure CORS compliance and Range seek support in Remotion Player.
- */
 export function resolveMediaUrl(pathOrUrl?: string): string {
   if (!pathOrUrl) return "";
 
-  // Local filesystem path (synthesized WAVs or local assets)
-  if (
-    pathOrUrl.startsWith("/Users/") ||
-    pathOrUrl.startsWith("file://") ||
-    (!pathOrUrl.startsWith("http://") &&
-      !pathOrUrl.startsWith("https://") &&
-      !pathOrUrl.startsWith("/"))
-  ) {
-    const cleanPath = pathOrUrl.replace("file://", "");
-    const host =
-      typeof window !== "undefined" && window.location.port && window.location.port !== "3000"
-        ? "http://localhost:3000"
-        : "";
-    return `${host}/api/media?path=${encodeURIComponent(cleanPath)}`;
+  // Remote HTTP/HTTPS media (Pexels, Pixabay, S3, or local CLI mediaServer)
+  if (pathOrUrl.startsWith("http://") || pathOrUrl.startsWith("https://")) {
+    return pathOrUrl;
   }
 
-  return pathOrUrl;
+  // Local filesystem path in Next.js browser
+  const cleanPath = pathOrUrl.replace("file://", "");
+  return `/api/media?path=${encodeURIComponent(cleanPath)}`;
 }

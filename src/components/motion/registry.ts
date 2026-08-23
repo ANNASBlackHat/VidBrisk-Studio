@@ -1,9 +1,24 @@
 import React from "react";
-import { StatCard, StatCardProps } from "./StatCard";
-import { Typewriter, TypewriterProps } from "./Typewriter";
-import { QuoteCard, QuoteCardProps } from "./QuoteCard";
-import { StandardCard, StandardCardProps } from "./StandardCard";
-import { SplitScreen, SplitScreenProps } from "./SplitScreen";
+import { StatCard, StatCardProps, STAT_CARD_SUPPORTED_ROLES } from "./StatCard";
+import { Typewriter, TypewriterProps, TYPEWRITER_SUPPORTED_ROLES } from "./Typewriter";
+import { QuoteCard, QuoteCardProps, QUOTE_CARD_SUPPORTED_ROLES } from "./QuoteCard";
+import { StandardCard, StandardCardProps, STANDARD_CARD_SUPPORTED_ROLES } from "./StandardCard";
+import { SplitScreen, SplitScreenProps, SPLIT_SCREEN_SUPPORTED_ROLES } from "./SplitScreen";
+import { KineticText, KineticTextProps, KINETIC_TEXT_SUPPORTED_ROLES } from "./KineticText";
+import { SwipeDeck, SwipeDeckProps, SWIPE_DECK_SUPPORTED_ROLES } from "./SwipeDeck";
+import { ChatBubbles, ChatBubblesProps, CHAT_BUBBLES_SUPPORTED_ROLES } from "./ChatBubbles";
+import { LayoutRole } from "@/lib/types";
+
+/**
+ * Formal layout contract shared by every motion component. Components declare
+ * which LayoutRoles they support and must render transparently (with pointer
+ * events disabled) for overlay roles vs. opaque full-bleed for full/takeover.
+ */
+export interface BaseMotionProps extends Record<string, unknown> {
+  durationInFrames?: number;
+  text?: string;
+  layoutRole?: LayoutRole;
+}
 
 export type MotionComponentProps =
   | StatCardProps
@@ -11,7 +26,10 @@ export type MotionComponentProps =
   | QuoteCardProps
   | StandardCardProps
   | SplitScreenProps
-  | Record<string, unknown>;
+  | KineticTextProps
+  | SwipeDeckProps
+  | ChatBubblesProps
+  | BaseMotionProps;
 
 /**
  * Component Registry mapping backend componentId strings to React/Remotion components.
@@ -25,6 +43,9 @@ export const MOTION_COMPONENTS: Record<
   "TextAnimations/Typewriter": Typewriter as React.ComponentType<MotionComponentProps>,
   "TextAnimations/QuoteCard": QuoteCard as React.ComponentType<MotionComponentProps>,
   "TextAnimations/StandardCard": StandardCard as React.ComponentType<MotionComponentProps>,
+  "TextAnimations/KineticText": KineticText as React.ComponentType<MotionComponentProps>,
+  "ListAnimations/SwipeDeck": SwipeDeck as React.ComponentType<MotionComponentProps>,
+  "ListAnimations/ChatBubbles": ChatBubbles as React.ComponentType<MotionComponentProps>,
   "Layouts/SplitScreen": SplitScreen as React.ComponentType<MotionComponentProps>,
 };
 
@@ -63,6 +84,17 @@ export {
   QuoteCard,
   StandardCard,
   SplitScreen,
+  KineticText,
+  SwipeDeck,
+  ChatBubbles,
+  STAT_CARD_SUPPORTED_ROLES,
+  TYPEWRITER_SUPPORTED_ROLES,
+  QUOTE_CARD_SUPPORTED_ROLES,
+  STANDARD_CARD_SUPPORTED_ROLES,
+  SPLIT_SCREEN_SUPPORTED_ROLES,
+  KINETIC_TEXT_SUPPORTED_ROLES,
+  SWIPE_DECK_SUPPORTED_ROLES,
+  CHAT_BUBBLES_SUPPORTED_ROLES,
 };
 
 export type {
@@ -71,4 +103,7 @@ export type {
   QuoteCardProps,
   StandardCardProps,
   SplitScreenProps,
+  KineticTextProps,
+  SwipeDeckProps,
+  ChatBubblesProps,
 };

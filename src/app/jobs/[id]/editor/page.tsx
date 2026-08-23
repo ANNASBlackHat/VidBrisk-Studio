@@ -252,6 +252,26 @@ export default function VideoEditorPage() {
       .flatMap((t) => t.items)
       .find((i) => i.id === projectState.selectedClipId) || null;
 
+  // zIndex-ordered stack of video layers overlapping the selected clip
+  const layerStack = (() => {
+    if (!selectedClip) return undefined;
+    const videoItems =
+      projectState.tracks.find((t) => t.id === "video")?.items || [];
+    if (!videoItems.some((i) => i.id === selectedClip.id)) return undefined;
+    const overlapping = videoItems.filter(
+      (i) =>
+        Math.max(i.trackStart, selectedClip.trackStart) <
+        Math.min(i.trackEnd, selectedClip.trackEnd) - 0.05
+    );
+    return overlapping.length > 1
+      ? [...overlapping].sort(
+          (a, b) =>
+            (a.zIndex ?? Number.MAX_SAFE_INTEGER) -
+            (b.zIndex ?? Number.MAX_SAFE_INTEGER)
+        )
+      : undefined;
+  })();
+
   const { width, height } = getResolutionForOrientation(projectState.orientation);
   const totalFrames = Math.max(1, Math.round(projectState.totalDuration * projectState.fps));
 
@@ -374,6 +394,13 @@ export default function VideoEditorPage() {
           onUpdateClipTiming={handleUpdateClipTiming}
           onSwapCandidate={handleSwapCandidate}
           onDeleteClip={handleDeleteClip}
+          layerStack={layerStack}
+          onSelectLayer={(clipId) =>
+            setProjectState({
+              ...projectState,
+              selectedClipId: clipId,
+            })
+          }
         />
       </div>
 

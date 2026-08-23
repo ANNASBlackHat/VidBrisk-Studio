@@ -35,7 +35,16 @@ export interface FootageEffects {
   vignette?: boolean;
 }
 
-export type BeatType = "narrative" | "stat" | "abstract";
+export type BeatType =
+  | "narrative"
+  | "stat"
+  | "abstract"
+  | "kinetic"
+  | "quote"
+  | "typewriter"
+  | "swipe_deck"
+  | "chat_bubbles"
+  | "split_screen";
 
 export interface Beat {
   id: string;

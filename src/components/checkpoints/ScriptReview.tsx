@@ -17,7 +17,11 @@ import {
   FileText,
   Video,
   BarChart2,
-  HelpCircle,
+  Quote,
+  Type,
+  Layers,
+  MessageSquare,
+  Columns,
 } from "lucide-react";
 
 interface ScriptReviewProps {
@@ -106,27 +110,197 @@ export function ScriptReview({ job, onApproved }: ScriptReviewProps) {
     }
   };
 
-  const getBeatTypeBadge = (type: BeatType) => {
-    switch (type) {
+  const getBeatTypeBadge = (beat: Beat) => {
+    const comp = (beat.motion_props?.component as string) || "";
+    const layout = (beat.motion_props?.layout_recipe as string) || "";
+    const type = beat.beat_type;
+
+    if (type === "split_screen" || layout === "split_screen" || comp.includes("SplitScreen")) {
+      return {
+        icon: <Columns className="w-3.5 h-3.5 text-orange-400" />,
+        color: "bg-orange-950/60 text-orange-300 border-orange-800",
+        label: "Split Screen",
+      };
+    }
+    if (type === "swipe_deck" || comp.includes("SwipeDeck")) {
+      return {
+        icon: <Layers className="w-3.5 h-3.5 text-emerald-400" />,
+        color: "bg-emerald-950/60 text-emerald-300 border-emerald-800",
+        label: "Swipe Deck",
+      };
+    }
+    if (type === "chat_bubbles" || comp.includes("ChatBubbles")) {
+      return {
+        icon: <MessageSquare className="w-3.5 h-3.5 text-indigo-400" />,
+        color: "bg-indigo-950/60 text-indigo-300 border-indigo-800",
+        label: "Chat Bubbles",
+      };
+    }
+    if (type === "kinetic" || comp.includes("KineticText")) {
+      return {
+        icon: <Type className="w-3.5 h-3.5 text-pink-400" />,
+        color: "bg-pink-950/60 text-pink-300 border-pink-800",
+        label: "Kinetic Text",
+      };
+    }
+    if (type === "typewriter" || comp.includes("Typewriter")) {
+      return {
+        icon: <Sparkles className="w-3.5 h-3.5 text-amber-400" />,
+        color: "bg-amber-950/60 text-amber-300 border-amber-800",
+        label: "Typewriter",
+      };
+    }
+    if (type === "stat" || comp.includes("StatCard")) {
+      return {
+        icon: <BarChart2 className="w-3.5 h-3.5 text-cyan-400" />,
+        color: "bg-cyan-950/60 text-cyan-300 border-cyan-800",
+        label: "Stat Card",
+      };
+    }
+    if (type === "quote" || type === "abstract" || comp.includes("QuoteCard")) {
+      return {
+        icon: <Quote className="w-3.5 h-3.5 text-purple-400" />,
+        color: "bg-purple-950/60 text-purple-300 border-purple-800",
+        label: "Quote Card",
+      };
+    }
+
+    return {
+      icon: <Video className="w-3.5 h-3.5 text-blue-400" />,
+      color: "bg-blue-950/60 text-blue-300 border-blue-800",
+      label: "Footage Narrative",
+    };
+  };
+
+  const getEffectiveSelection = (beat: Beat): string => {
+    const comp = (beat.motion_props?.component as string) || "";
+    const layout = (beat.motion_props?.layout_recipe as string) || "";
+    const type = beat.beat_type;
+
+    if (type === "split_screen" || layout === "split_screen" || comp.includes("SplitScreen")) return "split_screen";
+    if (type === "swipe_deck" || comp.includes("SwipeDeck")) return "swipe_deck";
+    if (type === "chat_bubbles" || comp.includes("ChatBubbles")) return "chat_bubbles";
+    if (type === "kinetic" || comp.includes("KineticText")) return "kinetic";
+    if (type === "typewriter" || comp.includes("Typewriter")) return "typewriter";
+    if (type === "stat" || comp.includes("StatCard")) return "stat";
+    if (type === "quote" || comp.includes("QuoteCard")) return "quote";
+    if (type === "abstract") return "quote";
+    return "narrative";
+  };
+
+  const handleSelectVisualType = (index: number, selected: string) => {
+    const updated = [...beats];
+    const current = updated[index];
+
+    switch (selected) {
+      case "narrative":
+        updated[index] = {
+          ...current,
+          beat_type: "narrative",
+          motion_props: null,
+        };
+        break;
       case "stat":
-        return {
-          icon: <BarChart2 className="w-3.5 h-3.5 text-cyan-400" />,
-          color: "bg-cyan-950/60 text-cyan-300 border-cyan-800",
-          label: "Stat Card",
+        updated[index] = {
+          ...current,
+          beat_type: "stat",
+          motion_props: {
+            component: "DataAnimations/StatCard",
+            primary_value: (current.text.match(/(\$?\d+(?:\.\d+)?\s*(?:billion|million|thousand|percent|%|k|m|b)?|\d+%)/i)?.[0] || "$25.4B").toUpperCase(),
+            kicker: "KEY METRIC",
+            visual_type: "chart",
+            subtext: current.text,
+            display_mode: "overlay",
+          },
         };
-      case "abstract":
-        return {
-          icon: <HelpCircle className="w-3.5 h-3.5 text-purple-400" />,
-          color: "bg-purple-950/60 text-purple-300 border-purple-800",
-          label: "Abstract / Quote",
+        break;
+      case "quote":
+        updated[index] = {
+          ...current,
+          beat_type: "abstract",
+          motion_props: {
+            component: "TextAnimations/QuoteCard",
+            quote: current.text,
+            emphasis: current.text.split(" ").slice(0, 4).join(" "),
+            author: "Retrospective",
+            display_mode: "overlay",
+          },
         };
+        break;
+      case "kinetic":
+        updated[index] = {
+          ...current,
+          beat_type: "abstract",
+          motion_props: {
+            component: "TextAnimations/KineticText",
+            text: current.text,
+            mode: "reveal",
+            display_mode: "takeover",
+            themeColor: "#38bdf8",
+          },
+        };
+        break;
+      case "typewriter":
+        updated[index] = {
+          ...current,
+          beat_type: "abstract",
+          motion_props: {
+            component: "TextAnimations/Typewriter",
+            text: current.text,
+            display_mode: "takeover",
+          },
+        };
+        break;
+      case "swipe_deck":
+        updated[index] = {
+          ...current,
+          beat_type: "abstract",
+          motion_props: {
+            component: "ListAnimations/SwipeDeck",
+            title: "KEY HIGHLIGHTS",
+            items: current.text.split(/[.;]\s+/).filter(Boolean).slice(0, 4),
+            display_mode: "takeover",
+            themeColor: "#38bdf8",
+          },
+        };
+        break;
+      case "chat_bubbles":
+        updated[index] = {
+          ...current,
+          beat_type: "abstract",
+          motion_props: {
+            component: "ListAnimations/ChatBubbles",
+            title: "CONVERSATION THREAD",
+            messages: [
+              { text: current.text, sender: "system" },
+            ],
+            display_mode: "takeover",
+            themeColor: "#3b82f6",
+          },
+        };
+        break;
+      case "split_screen":
+        updated[index] = {
+          ...current,
+          beat_type: "narrative",
+          motion_props: {
+            layout_recipe: "split_screen",
+            component: "Layouts/SplitScreen",
+            leftTitle: "Initial Phase",
+            leftContent: current.text.slice(0, 35),
+            rightTitle: "Outcome",
+            rightContent: "Target Realized",
+          },
+        };
+        break;
       default:
-        return {
-          icon: <Video className="w-3.5 h-3.5 text-blue-400" />,
-          color: "bg-blue-950/60 text-blue-300 border-blue-800",
-          label: "Footage Narrative",
+        updated[index] = {
+          ...current,
+          beat_type: "narrative",
+          motion_props: null,
         };
     }
+    setBeats(updated);
   };
 
   return (
@@ -221,34 +395,46 @@ export function ScriptReview({ job, onApproved }: ScriptReviewProps) {
         </div>
 
         {beats.map((beat, idx) => {
-          const badge = getBeatTypeBadge(beat.beat_type);
+          const badge = getBeatTypeBadge(beat);
+          const currentVisual = getEffectiveSelection(beat);
           return (
             <div
               key={beat.id || idx}
               className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 hover:border-slate-700 transition-colors flex flex-col gap-3"
             >
               <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2.5">
+                <div className="flex items-center gap-2.5 flex-wrap">
                   <span className="px-2 py-0.5 rounded font-mono text-xs font-bold bg-slate-800 text-slate-300 border border-slate-700">
                     Beat #{idx + 1} ({beat.id})
                   </span>
 
-                  {/* Beat Type Selector */}
-                  <div className="flex items-center gap-1.5">
+                  {/* Visual Style & Motion Component Selector */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     <select
-                      value={beat.beat_type}
+                      value={currentVisual}
                       onChange={(e) =>
-                        handleUpdateBeat(idx, "beat_type", e.target.value as BeatType)
+                        handleSelectVisualType(idx, e.target.value)
                       }
-                      className="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-xs text-slate-200 font-medium focus:outline-none focus:border-amber-500"
+                      className="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-xs text-slate-200 font-medium focus:outline-none focus:border-amber-500 cursor-pointer"
                     >
-                      <option value="narrative">Narrative (Footage)</option>
-                      <option value="stat">Stat (Data / Number Graphic)</option>
-                      <option value="abstract">Abstract (Quote / Concept Card)</option>
+                      <optgroup label="Footage & Video">
+                        <option value="narrative">Narrative (Footage / B-Roll)</option>
+                        <option value="split_screen">Split Screen (Dual Comparison)</option>
+                      </optgroup>
+                      <optgroup label="Motion Graphics & Data">
+                        <option value="stat">Stat Card (Data & Metrics)</option>
+                        <option value="quote">Quote Card (Featured Quotes)</option>
+                        <option value="kinetic">Kinetic Typography (Dynamic Reveal)</option>
+                        <option value="typewriter">Typewriter Narration</option>
+                      </optgroup>
+                      <optgroup label="List & Dialogue Reveals">
+                        <option value="swipe_deck">Card Swipe Deck (Stacked List)</option>
+                        <option value="chat_bubbles">Chat Bubble Reveal (Dialogue)</option>
+                      </optgroup>
                     </select>
 
                     <span
-                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] border ${badge.color}`}
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] border font-medium ${badge.color}`}
                     >
                       {badge.icon}
                       <span>{badge.label}</span>

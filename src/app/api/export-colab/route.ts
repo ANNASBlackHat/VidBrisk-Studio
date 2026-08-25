@@ -72,6 +72,7 @@ function buildMinimalPackageJson(rootDir: string, warnings: string[]): string {
     "@remotion/renderer",
     "@remotion/player",
     "@remotion/tailwind",
+    "@remotion/noise",
     "react",
     "react-dom",
     "clsx",

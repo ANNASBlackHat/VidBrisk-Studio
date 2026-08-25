@@ -21,6 +21,7 @@ interface ClipInspectorProps {
   onUpdateClipTiming: (clipId: string, sourceIn: number, sourceOut: number) => void;
   onSwapCandidate: (clipId: string, candidateIndex: number) => void;
   onDeleteClip: (clipId: string) => void;
+  onUpdateClipEnterTransition?: (clipId: string, value: EditorClip["enterTransition"]) => void;
   /** zIndex-ordered layers overlapping the selected clip (multi-layer only) */
   layerStack?: EditorClip[];
   onSelectLayer?: (clipId: string) => void;
@@ -32,6 +33,7 @@ export function ClipInspector({
   onUpdateClipTiming,
   onSwapCandidate,
   onDeleteClip,
+  onUpdateClipEnterTransition,
   layerStack,
   onSelectLayer,
 }: ClipInspectorProps) {
@@ -375,6 +377,34 @@ export function ClipInspector({
               />
             </div>
           )}
+        </div>
+      )}
+
+      {/* Camera-Shake Entrance (per-clip, independent of TransitionStyle) */}
+      {isVideo && (
+        <div className="flex flex-col gap-2 p-3.5 rounded-xl bg-amber-950/20 border border-amber-800/40">
+          <span className="font-semibold uppercase tracking-wider text-[10px] text-amber-300 flex items-center gap-1.5">
+            <Sparkles className="w-3 h-3 text-amber-400" />
+            <span>Entrance Effect</span>
+          </span>
+          <div className="grid grid-cols-2 gap-1.5 font-mono text-[11px]">
+            <button
+              type="button"
+              onClick={() => onUpdateClipEnterTransition?.(selectedClip.id, undefined)}
+              className={`py-1.5 px-2 rounded-lg font-medium transition-all ${!selectedClip.enterTransition ? "bg-slate-700 text-white border border-slate-600" : "bg-slate-900 text-slate-400 border border-slate-800 hover:text-slate-200"}`}
+            >
+              None
+            </button>
+            <button
+              type="button"
+              onClick={() => onUpdateClipEnterTransition?.(selectedClip.id, "shake")}
+              className={`py-1.5 px-2 rounded-lg font-medium transition-all ${selectedClip.enterTransition === "shake" ? "bg-amber-600 text-white shadow-sm" : "bg-slate-900 text-slate-400 border border-slate-800 hover:text-slate-200"}`}
+              title="Brief jitter on first ~8 frames, decays to 0. Per-clip, not a boundary transition"
+            >
+              📳 Shake
+            </button>
+          </div>
+          <p className="text-[10px] text-amber-200/60 leading-snug">Per-clip entrance, independent of cut transitions (flash/whip-pan/glitch). Jitter decays to 0, composes with Ken-Burns.</p>
         </div>
       )}
 

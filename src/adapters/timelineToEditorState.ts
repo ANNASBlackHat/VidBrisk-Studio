@@ -6,6 +6,7 @@ import {
   FootageCandidate,
   TargetOrientation,
   TransitionStyle,
+  ClipTransitionKind,
   Layer,
   LayoutRole,
   WordTiming,
@@ -38,6 +39,10 @@ export interface EditorClip {
   // Multi-layer composition
   zIndex?: number;
   layoutRole?: LayoutRole;
+
+  // Per-clip entrance/exit transition (e.g., shake) — independent of project transitionStyle
+  enterTransition?: ClipTransitionKind;
+  exitTransition?: ClipTransitionKind;
 
   // Metadata, Timings & Alternative Candidates
   beatId?: string;

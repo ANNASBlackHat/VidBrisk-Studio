@@ -22,7 +22,9 @@ export type JobStatus =
 
 export type TargetOrientation = "horizontal" | "vertical" | "square" | "any";
 
-export type TransitionStyle = "none" | "flash" | "whip-pan";
+export type TransitionStyle = "none" | "flash" | "whip-pan" | "glitch";
+
+export type ClipTransitionKind = "whip-pan" | "shake";
 
 export type ColorTreatment =
   | "none"

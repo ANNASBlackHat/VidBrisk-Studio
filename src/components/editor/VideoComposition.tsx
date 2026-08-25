@@ -12,9 +12,11 @@ import {
 import { EditorProjectState, EditorClip } from "@/adapters/timelineToEditorState";
 import { getMotionComponent } from "@/components/motion/registry";
 import { FlashTransition } from "@/components/motion/FlashTransition";
+import { GlitchTransition } from "@/components/motion/GlitchTransition";
 import { getStreamBoundaries } from "@/lib/transitions";
-import { LayoutRole, ColorTreatment, FootageEffects } from "@/lib/types";
+import { LayoutRole, ColorTreatment, FootageEffects, ClipTransitionKind } from "@/lib/types";
 import { resolveMediaUrl } from "@/lib/utils";
+import { noise2D } from "@remotion/noise";
 
 export interface VideoCompositionProps {
   projectState: EditorProjectState;
@@ -88,8 +90,8 @@ export interface FootageClipProps {
   durationFrames: number;
   containerStyle?: React.CSSProperties;
   effects?: FootageEffects;
-  exitTransition?: "whip-pan";
-  enterTransition?: "whip-pan";
+  exitTransition?: ClipTransitionKind;
+  enterTransition?: ClipTransitionKind;
 }
 
 export const FootageClip: React.FC<FootageClipProps> = ({
@@ -108,9 +110,30 @@ export const FootageClip: React.FC<FootageClipProps> = ({
 
   const transitionFrames = Math.min(8, Math.max(1, Math.floor(durationFrames / 2)));
   let translateX = 0;
+  let translateY = 0;
+  let rotateDeg = 0;
   let blurPx = 0;
 
-  if (enterTransition === "whip-pan" && frame < transitionFrames) {
+  // Shake: noise-driven jitter decaying to 0, composed with Ken-Burns scale
+  const shakeWindow = Math.min(8, Math.max(1, Math.floor(durationFrames * 0.2)));
+  const shakeDecay = (f: number, window: number) => interpolate(f, [0, window], [1, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
+  if (enterTransition === "shake" && frame < shakeWindow) {
+    const decay = shakeDecay(frame, shakeWindow);
+    // noise2D gives -1..1, scale to small jitter and decay
+    translateX = noise2D("shake-enter-x", frame * 0.7, 0) * 10 * decay;
+    translateY = noise2D("shake-enter-y", frame * 0.7, 5) * 6 * decay;
+    rotateDeg = noise2D("shake-enter-r", frame * 0.7, 10) * 1.2 * decay;
+  } else if (exitTransition === "shake" && frame >= durationFrames - shakeWindow) {
+    const localFrame = frame - (durationFrames - shakeWindow);
+    const decay = shakeDecay(shakeWindow - localFrame, shakeWindow);
+    translateX = noise2D("shake-exit-x", localFrame * 0.7, 0) * 10 * decay;
+    translateY = noise2D("shake-exit-y", localFrame * 0.7, 5) * 6 * decay;
+    rotateDeg = noise2D("shake-exit-r", localFrame * 0.7, 10) * 1.2 * decay;
+  } else if (enterTransition === "whip-pan" && frame < transitionFrames) {
     translateX = interpolate(frame, [0, transitionFrames], [-40, 0], {
       extrapolateLeft: "clamp",
       extrapolateRight: "clamp",
@@ -155,6 +178,18 @@ export const FootageClip: React.FC<FootageClipProps> = ({
     { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
   );
 
+  // Compose transform: Ken-Burns scale + transition jitter
+  const transforms: string[] = [];
+  const isWhipPan = enterTransition === "whip-pan" || exitTransition === "whip-pan";
+  const isShake = enterTransition === "shake" || exitTransition === "shake";
+  if (translateX !== 0) {
+    // whip-pan uses % (large -40..40), shake uses px (small ±10)
+    transforms.push(`translateX(${translateX.toFixed(2)}${isWhipPan ? "%" : "px"})`);
+  }
+  if (isShake && translateY !== 0) transforms.push(`translateY(${translateY.toFixed(2)}px)`);
+  if (isShake && rotateDeg !== 0) transforms.push(`rotate(${rotateDeg.toFixed(2)}deg)`);
+  const transformValue = transforms.length > 0 ? transforms.join(" ") : undefined;
+
   return (
     <AbsoluteFill style={{ backgroundColor: "#000000", overflow: "hidden", ...containerStyle }}>
       <Video
@@ -165,7 +200,7 @@ export const FootageClip: React.FC<FootageClipProps> = ({
           height: "100%",
           objectFit: "cover",
           scale: `${scale}`,
-          transform: translateX !== 0 ? `translateX(${translateX.toFixed(2)}%)` : undefined,
+          transform: transformValue,
           filter,
         }}
         volume={0} // Mute raw footage audio to give full clarity to Voiceover
@@ -273,8 +308,13 @@ export function VideoComposition({ projectState }: VideoCompositionProps) {
       );
     }
 
-    const exitTransition = exitClipIds.has(item.id) ? ("whip-pan" as const) : undefined;
-    const enterTransition = enterClipIds.has(item.id) ? ("whip-pan" as const) : undefined;
+    // Per-clip shake takes precedence over boundary-based whip-pan
+    const perClipEnter = (item as EditorClip).enterTransition;
+    const perClipExit = (item as EditorClip).exitTransition;
+    const exitTransition: ClipTransitionKind | undefined =
+      perClipExit ?? (exitClipIds.has(item.id) ? ("whip-pan" as const) : undefined);
+    const enterTransition: ClipTransitionKind | undefined =
+      perClipEnter ?? (enterClipIds.has(item.id) ? ("whip-pan" as const) : undefined);
 
     return (
       <Sequence
@@ -350,7 +390,7 @@ export function VideoComposition({ projectState }: VideoCompositionProps) {
       {/* 1. Video & Motion Layers — zIndex-sorted, overlapping by design */}
       {videoTrack?.items.map((item) => renderLayer(item))}
 
-      {/* 2. Clip-Boundary Flash Transitions (rendered above video layers) */}
+      {/* 2. Clip-Boundary Transitions (flash / glitch) — rendered above video layers */}
       {projectState.transitionStyle === "flash" &&
         boundaries.map((boundary, idx) => {
           const flashFrames = 6;
@@ -364,6 +404,23 @@ export function VideoComposition({ projectState }: VideoCompositionProps) {
               name={`flash-transition-${boundary.boundaryFrame}`}
             >
               <FlashTransition flashFrames={flashFrames} />
+            </Sequence>
+          );
+        })}
+
+      {projectState.transitionStyle === "glitch" &&
+        boundaries.map((boundary, idx) => {
+          const glitchFrames = 8;
+          const half = Math.floor(glitchFrames / 2);
+          const from = Math.max(0, boundary.boundaryFrame - half);
+          return (
+            <Sequence
+              key={`glitch-${boundary.a.id}-${boundary.b.id}-${idx}`}
+              from={from}
+              durationInFrames={glitchFrames}
+              name={`glitch-transition-${boundary.boundaryFrame}`}
+            >
+              <GlitchTransition glitchFrames={glitchFrames} />
             </Sequence>
           );
         })}

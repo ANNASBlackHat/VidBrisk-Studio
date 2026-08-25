@@ -217,6 +217,24 @@ export default function VideoEditorPage() {
     });
   };
 
+  const handleUpdateClipEnterTransition = (
+    clipId: string,
+    value: import("@/adapters/timelineToEditorState").EditorClip["enterTransition"]
+  ) => {
+    if (!projectState) return;
+    const updatedTracks = projectState.tracks.map((track) => {
+      if (track.id !== "video") return track;
+      return {
+        ...track,
+        items: track.items.map((item) => {
+          if (item.id !== clipId) return item;
+          return { ...item, enterTransition: value };
+        }),
+      };
+    });
+    setProjectState({ ...projectState, tracks: updatedTracks });
+  };
+
   if (jobLoading || timelineLoading || !projectState) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
@@ -316,6 +334,7 @@ export default function VideoEditorPage() {
               <option value="none" className="bg-slate-900 text-white">None (Standard Cut)</option>
               <option value="flash" className="bg-slate-900 text-white">⚡ Flash (White Spike)</option>
               <option value="whip-pan" className="bg-slate-900 text-white">💨 Whip-Pan (Motion Blur)</option>
+              <option value="glitch" className="bg-slate-900 text-white">📺 Glitch (VHS Slice)</option>
             </select>
           </div>
 
@@ -414,6 +433,7 @@ export default function VideoEditorPage() {
           onUpdateClipTiming={handleUpdateClipTiming}
           onSwapCandidate={handleSwapCandidate}
           onDeleteClip={handleDeleteClip}
+          onUpdateClipEnterTransition={handleUpdateClipEnterTransition}
           layerStack={layerStack}
           onSelectLayer={(clipId) =>
             setProjectState({

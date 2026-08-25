@@ -281,7 +281,7 @@ export interface JobResponse {
   updated_at: string;
 }
 
-export type RenderEngineType = "remotion-native" | "ffmpeg-fallback";
+export type RenderEngineType = "remotion-native" | "ffmpeg-fallback" | "remotion-colab";
 
 export interface RenderVideoResponse {
   status: string;

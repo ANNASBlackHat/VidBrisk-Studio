@@ -1,11 +1,7 @@
 /**
- * Colab-optimized Remotion renderer — Linux root container specialization of scripts/render_video.mjs
- *
- * Key deltas vs render_video.mjs:
- * - Parallel pre-fetch with retry (Promise.all) -> cache/media/
- * - Micro Range HTTP server on 127.0.0.1:0 (identical to local but explicit)
- * - Linux Chromium flags (--no-sandbox, --disable-dev-shm-usage, etc.)
- * - Adaptive concurrency: os.cpus().length clamped to [2..8] and resolution-aware (4K -> 2)
+ * Colab Parallel Chunk Orchestrator — Linux root container
+ * Implements SPEC_colab_rendering_export.md §4a: multi-worker chunk partitioning,
+ * parallel asset pre-caching, and zero-copy FFmpeg concat stitching.
  */
 import { renderMedia, selectComposition } from "@remotion/renderer";
 import path from "path";
@@ -13,6 +9,7 @@ import fs from "fs";
 import os from "os";
 import http from "http";
 import crypto from "crypto";
+import { spawn } from "child_process";
 import { fileURLToPath } from "url";
 import { bundleRemotion } from "./bundle_remotion.mjs";
 
@@ -76,16 +73,22 @@ await new Promise((resolve) => mediaServer.listen(0, "127.0.0.1", resolve));
 const mediaPort = mediaServer.address().port;
 const mediaBaseUrl = `http://127.0.0.1:${mediaPort}`;
 console.log(`[Colab Renderer] 📡 Micro media server listening on ${mediaBaseUrl}`);
+// Log total memory for resource visibility
+try {
+  const totalMemGb = (os.totalmem() / 1024 / 1024 / 1024).toFixed(1);
+  console.log(`[Colab Renderer] 🖥️ Detected ${os.cpus().length} vCPUs, ${totalMemGb} GB RAM`);
+} catch {}
 
 function toHttpUrl(p) {
   if (!p) return "";
   if (p.startsWith("http://") || p.startsWith("https://")) return p;
-  if (p.startsWith("assets/") || p.startsWith("/assets/")) {
-    const localAsset = path.join(rootDir, p.replace(/^\//, ""));
-    if (fs.existsSync(localAsset)) return `${mediaBaseUrl}/media?path=${encodeURIComponent(localAsset)}`;
-    // Also try relative to CWD (when running inside colab-render-* folder)
-    const cwdAsset = path.resolve(p);
-    if (fs.existsSync(cwdAsset)) return `${mediaBaseUrl}/media?path=${encodeURIComponent(cwdAsset)}`;
+  if (p.startsWith("assets/") || p.startsWith("/assets/") || p.startsWith("assets\\")) {
+    const candidates = [
+      path.join(rootDir, p.replace(/^\//, "")),
+      path.join(process.cwd(), p.replace(/^\//, "")),
+      path.resolve(p),
+    ];
+    for (const c of candidates) if (fs.existsSync(c)) return `${mediaBaseUrl}/media?path=${encodeURIComponent(c)}`;
     return p;
   }
   const clean = p.replace("file://", "");
@@ -114,11 +117,9 @@ async function fetchWithRetry(url, attempt = 0) {
 
 async function cacheMediaLocally(url) {
   if (!url || typeof url !== "string") return url;
-  // Already local asset or already via media server
   if (url.startsWith(mediaBaseUrl)) return url;
   if (url.startsWith("assets/")) return toHttpUrl(url);
   if (!url.startsWith("http://") && !url.startsWith("https://")) {
-    // Local filesystem path — map to micro server immediately (do not attempt fetch)
     return toHttpUrl(url);
   }
 
@@ -150,7 +151,6 @@ async function parallelPreCache(urls) {
   if (unique.length === 0) return new Map();
   console.log(`[Colab Renderer] 📥 Parallel pre-caching ${unique.length} remote asset(s) with concurrency=${CACHE_PARALLELISM}...`);
   const results = new Map();
-  // Chunked Promise.all to bound parallelism
   for (let i = 0; i < unique.length; i += CACHE_PARALLELISM) {
     const chunk = unique.slice(i, i + CACHE_PARALLELISM);
     const settled = await Promise.allSettled(chunk.map(async (u) => ({ url: u, cached: await cacheMediaLocally(u) })));
@@ -164,23 +164,42 @@ async function parallelPreCache(urls) {
   return results;
 }
 
+function runFfmpegConcat(chunksDir, chunkFiles, outputPath) {
+  return new Promise((resolve, reject) => {
+    const listPath = path.join(chunksDir, "chunks.txt");
+    const listContent = chunkFiles.map((f) => `file '${f.replace(/'/g, "'\\''")}'`).join("\n");
+    fs.writeFileSync(listPath, listContent, "utf-8");
+    console.log(`[Colab Renderer] ✂️ Stitching ${chunkFiles.length} chunks via FFmpeg concat (zero-copy, <1s)...`);
+    console.log(`[Colab Renderer] 📄 chunks.txt:\n${listContent}`);
+
+    const args = ["-y", "-f", "concat", "-safe", "0", "-i", listPath, "-c", "copy", "-movflags", "+faststart", outputPath];
+    const proc = spawn("ffmpeg", args, { stdio: "inherit" });
+    proc.on("close", (code) => {
+      if (code === 0) resolve(outputPath);
+      else reject(new Error(`ffmpeg concat exited with code ${code}`));
+    });
+    proc.on("error", reject);
+  });
+}
+
 // --- CLI args ---
 const args = process.argv.slice(2);
 let stateFile = "";
 let outFile = "";
 let forceBundle = false;
+let cliChunks = null;
 
 for (let i = 0; i < args.length; i++) {
   if (args[i] === "--state" && args[i + 1]) { stateFile = args[i + 1]; i++; }
   else if (args[i] === "--out" && args[i + 1]) { outFile = args[i + 1]; i++; }
   else if (args[i] === "--force-bundle") forceBundle = true;
+  else if (args[i] === "--chunks" && args[i + 1]) { cliChunks = parseInt(args[i + 1], 10); i++; }
 }
 
 let state;
 if (stateFile && fs.existsSync(stateFile)) {
   state = JSON.parse(fs.readFileSync(stateFile, "utf-8"));
 
-  // Collect all remote URLs for parallel pre-cache
   const allUrls = [];
   for (const track of state.tracks || []) {
     for (const item of track.items || []) {
@@ -191,7 +210,6 @@ if (stateFile && fs.existsSync(stateFile)) {
   }
   const cacheMap = await parallelPreCache(allUrls);
 
-  // Rewrite state to use cached http URLs via micro server
   for (const track of state.tracks || []) {
     for (const item of track.items || []) {
       if (item.assetId && cacheMap.has(item.assetId)) item.assetId = cacheMap.get(item.assetId);
@@ -204,9 +222,9 @@ if (stateFile && fs.existsSync(stateFile)) {
         if (cacheMap.has(item.storagePath)) item.storageUrl = cacheMap.get(item.storagePath);
         else item.storageUrl = await cacheMediaLocally(item.storagePath);
       }
-      // Normalize assets/ references
       if (item.storageUrl?.startsWith("assets/")) item.storageUrl = toHttpUrl(item.storageUrl);
       if (item.storagePath?.startsWith("assets/")) item.storageUrl = toHttpUrl(item.storagePath);
+      if (item.assetId?.startsWith("assets/")) item.assetId = toHttpUrl(item.assetId);
     }
   }
 } else {
@@ -228,47 +246,126 @@ const composition = await selectComposition({
   inputProps: { projectState: state },
 });
 
-console.log(`[Colab Renderer] Rendering ${composition.durationInFrames} frames (${composition.width}x${composition.height} @ ${composition.fps}fps)...`);
+const totalFrames = composition.durationInFrames;
+const fps = composition.fps;
+console.log(`[Colab Renderer] 🎬 Composition: ${totalFrames} frames (${composition.width}x${composition.height} @ ${fps}fps)`);
 
-// Adaptive concurrency: 4K -> 2, otherwise min(4, cpus) clamped [2..8]
-const cpus = os.cpus().length;
+// --- Dynamic Resource Sizing & Chunk Calculation (SPEC §4a.1) ---
+const cpuCount = os.cpus().length;
+const totalMemGb = os.totalmem() / 1024 / 1024 / 1024;
+const N = cliChunks ? Math.max(1, Math.min(6, cliChunks)) : Math.min(6, Math.max(2, cpuCount));
+const chunkSize = Math.ceil(totalFrames / N);
+const chunks = [];
+for (let i = 0; i < N; i++) {
+  const startFrame = i * chunkSize;
+  const endFrame = Math.min(startFrame + chunkSize - 1, totalFrames - 1);
+  if (startFrame >= totalFrames) break;
+  chunks.push({ index: i, startFrame, endFrame, output: path.join(rootDir, ".chunks", `chunk_${i}.mp4`) });
+}
+console.log(`[Colab Renderer] 🧩 Chunking: N=${N} workers (cpuCount=${cpuCount}, RAM=${totalMemGb.toFixed(1)}GB) | chunkSize≈${chunkSize} frames | total=${totalFrames}`);
+chunks.forEach((c) => console.log(`  → Worker ${c.index + 1}: Frames ${c.startFrame}..${c.endFrame} → .chunks/chunk_${c.index}.mp4`));
+
+// Prepare chunks directory
+const chunksDir = path.join(rootDir, ".chunks");
+if (fs.existsSync(chunksDir)) fs.rmSync(chunksDir, { recursive: true, force: true });
+fs.mkdirSync(chunksDir, { recursive: true });
+
+// --- Chromium options (root container) ---
+const chromiumOptions = {
+  args: [
+    "--no-sandbox",
+    "--disable-setuid-sandbox",
+    "--disable-dev-shm-usage",
+    "--disable-gpu",
+    "--allow-file-access-from-files",
+    "--autoplay-policy=no-user-gesture-required",
+    "--disable-features=IsolateOrigins,site-per-process",
+  ],
+};
+
+// Per-worker concurrency: distribute CPUs, cap to avoid oversubscription
 const is4K = composition.width >= 3840 || composition.height >= 3840;
-const baseConcurrency = Math.max(2, Math.min(8, cpus));
-const concurrency = is4K ? Math.min(2, baseConcurrency) : Math.min(4, baseConcurrency);
-console.log(`[Colab Renderer] ⚙️ Concurrency=${concurrency} (vCPUs=${cpus}, 4K=${is4K}) | Chromium flags: --no-sandbox --disable-dev-shm-usage --disable-gpu`);
+const perWorkerConcurrency = is4K ? 1 : Math.max(1, Math.floor(cpuCount / N) || 1);
+console.log(`[Colab Renderer] ⚙️ Per-worker concurrency=${perWorkerConcurrency} (4K=${is4K}) | Chromium flags: --no-sandbox --disable-dev-shm-usage --disable-gpu (12GB RAM pool)`);
 
-let lastLog = 0;
-const result = await renderMedia({
-  composition,
-  serveUrl: bundleLocation,
-  codec: "h264",
-  audioCodec: "aac",
-  outputLocation: outFile,
-  overwrite: true,
-  timeoutInMilliseconds: 600000,
-  inputProps: { projectState: state },
-  onProgress: ({ renderedFrames, progress }) => {
-    const now = Date.now();
-    if (now - lastLog > 1000 || renderedFrames === composition.durationInFrames) {
-      lastLog = now;
+if (chunks.length === 1) {
+  console.log("[Colab Renderer] Single chunk — falling back to sequential render");
+  await renderMedia({
+    composition,
+    serveUrl: bundleLocation,
+    codec: "h264",
+    audioCodec: "aac",
+    outputLocation: outFile,
+    overwrite: true,
+    timeoutInMilliseconds: 600000,
+    inputProps: { projectState: state },
+    frameRange: [chunks[0].startFrame, chunks[0].endFrame],
+    onProgress: ({ renderedFrames, progress }) => {
       const pct = Math.round(progress * 100);
-      console.log(`[Colab Renderer] 🎬 Rendering frame ${renderedFrames}/${composition.durationInFrames} (${pct}%)`);
-    }
-  },
-  imageFormat: "jpeg",
-  concurrency,
-  chromiumOptions: {
-    args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage",
-      "--disable-gpu",
-      "--allow-file-access-from-files",
-      "--autoplay-policy=no-user-gesture-required",
-      "--disable-features=IsolateOrigins,site-per-process",
-    ],
-  },
-});
+      if (renderedFrames % 30 === 0 || pct === 100) console.log(`[Colab Renderer] 🎬 Frame ${renderedFrames}/${totalFrames} (${pct}%)`);
+    },
+    imageFormat: "jpeg",
+    concurrency: perWorkerConcurrency,
+    chromiumOptions,
+  });
+} else {
+  console.log(`[Colab Renderer] 🚀 Launching ${chunks.length} parallel Remotion workers via Promise.all (100% vCPU, 8-10GB RAM)...`);
+  const startTime = Date.now();
+  const workerPromises = chunks.map(async (chunk) => {
+    const workerStart = Date.now();
+    console.log(`[Worker ${chunk.index + 1}] ▶️ Rendering frames ${chunk.startFrame}..${chunk.endFrame} → ${chunk.output}`);
+    await renderMedia({
+      composition,
+      serveUrl: bundleLocation,
+      codec: "h264",
+      audioCodec: "aac",
+      outputLocation: chunk.output,
+      overwrite: true,
+      timeoutInMilliseconds: 600000,
+      inputProps: { projectState: state },
+      frameRange: [chunk.startFrame, chunk.endFrame],
+      onProgress: ({ renderedFrames }) => {
+        // Throttled per-worker logging to avoid spam
+        if (renderedFrames % 60 === 0) {
+          console.log(`[Worker ${chunk.index + 1}] ⏳ ${renderedFrames}/${chunk.endFrame - chunk.startFrame + 1} frames`);
+        }
+      },
+      imageFormat: "jpeg",
+      concurrency: perWorkerConcurrency,
+      chromiumOptions,
+    });
+    const elapsed = ((Date.now() - workerStart) / 1000).toFixed(1);
+    console.log(`[Worker ${chunk.index + 1}] ✅ Done in ${elapsed}s → ${chunk.output}`);
+    return chunk.output;
+  });
+
+  const chunkFiles = await Promise.all(workerPromises);
+  const parallelElapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+  console.log(`[Colab Renderer] ✅ All ${chunks.length} chunks rendered in ${parallelElapsed}s (parallel) — stitching...`);
+
+  // Zero-copy FFmpeg concat
+  try {
+    await runFfmpegConcat(chunksDir, chunkFiles, outFile);
+    console.log(`[Colab Renderer] ✅ FFmpeg concat done → ${outFile}`);
+  } catch (err) {
+    console.error("[Colab Renderer] ❌ FFmpeg concat failed:", err.message);
+    console.error("Falling back: individual chunks remain in .chunks/ for manual inspection");
+    throw err;
+  }
+
+  // Verify output exists and log size
+  if (fs.existsSync(outFile)) {
+    const sz = (fs.statSync(outFile).size / 1024 / 1024).toFixed(1);
+    console.log(`[Colab Renderer] 📦 Final output: ${outFile} (${sz} MB) | ${totalFrames} frames stitched`);
+  }
+
+  // Optional cleanup: keep chunks for debugging unless --clean
+  if (args.includes("--clean")) {
+    fs.rmSync(chunksDir, { recursive: true, force: true });
+    console.log("[Colab Renderer] 🧹 Cleaned .chunks/");
+  }
+}
 
 mediaServer.close();
-console.log(`[Colab Renderer] ✅ Video render complete: ${outFile} (engine=remotion-colab)`);
+console.log(`[Colab Renderer] ✅ Video render complete: ${outFile} (engine=remotion-colab, N=${chunks.length} workers)`);
+

@@ -242,6 +242,7 @@ if (timelineFile && fs.existsSync(timelineFile)) {
       { id: "text", label: "Captions", type: "text", items: textItems },
       { id: "audio", label: "Voiceover", type: "audio", items: audioItems },
     ],
+    transitionStyle: timeline.metadata?.transition_style || "none",
     selectedClipId: null,
   };
 } else if (stateFile && fs.existsSync(stateFile)) {

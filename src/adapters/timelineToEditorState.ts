@@ -5,6 +5,7 @@ import {
   AudioTrackItem,
   FootageCandidate,
   TargetOrientation,
+  TransitionStyle,
   Layer,
   LayoutRole,
   WordTiming,
@@ -60,6 +61,7 @@ export interface EditorProjectState {
   orientation: TargetOrientation;
   tracks: EditorTrack[];
   selectedClipId: string | null;
+  transitionStyle?: TransitionStyle;
   metadata?: {
     beat_count?: number;
     footage_candidates?: Record<string, FootageCandidate[]>;
@@ -388,6 +390,7 @@ export function timelineToEditorState(
     orientation,
     tracks,
     selectedClipId: videoItems[0]?.id || null,
+    transitionStyle: (timeline.metadata as { transition_style?: TransitionStyle })?.transition_style || "none",
     metadata: timeline.metadata,
   };
 }
@@ -449,6 +452,9 @@ export function editorStateToTimeline(state: EditorProjectState): TimelineJSON {
       },
     ],
     total_duration: state.totalDuration,
-    metadata: state.metadata,
+    metadata: {
+      ...(state.metadata || {}),
+      transition_style: state.transitionStyle || "none",
+    },
   };
 }

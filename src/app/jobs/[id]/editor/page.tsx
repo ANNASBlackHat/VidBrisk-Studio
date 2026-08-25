@@ -20,6 +20,7 @@ import { api } from "@/lib/api";
 import {
   JobResponse,
   TimelineJSON,
+  TransitionStyle,
 } from "@/lib/types";
 import {
   EditorProjectState,
@@ -299,6 +300,25 @@ export default function VideoEditorPage() {
         </div>
 
         <div className="flex items-center gap-3">
+          {/* Cut Transition Style Toggle */}
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-950/80 border border-slate-800 text-xs">
+            <span className="text-[11px] font-medium text-slate-400">Cut Transition:</span>
+            <select
+              value={projectState.transitionStyle || "none"}
+              onChange={(e) => {
+                setProjectState({
+                  ...projectState,
+                  transitionStyle: e.target.value as TransitionStyle,
+                });
+              }}
+              className="bg-transparent text-slate-200 font-medium text-xs focus:outline-none cursor-pointer hover:text-white"
+            >
+              <option value="none" className="bg-slate-900 text-white">None (Standard Cut)</option>
+              <option value="flash" className="bg-slate-900 text-white">⚡ Flash (White Spike)</option>
+              <option value="whip-pan" className="bg-slate-900 text-white">💨 Whip-Pan (Motion Blur)</option>
+            </select>
+          </div>
+
           <button
             type="button"
             onClick={() => setIsExportOpen(true)}

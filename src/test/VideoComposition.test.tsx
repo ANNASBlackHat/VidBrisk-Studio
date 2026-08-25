@@ -13,6 +13,7 @@ import {
   layerGeometry,
   getColorTreatmentFilter,
 } from "@/components/editor/VideoComposition";
+import { FlashTransition } from "@/components/motion/FlashTransition";
 import { EditorProjectState } from "@/adapters/timelineToEditorState";
 import { LayoutRole, FootageEffects } from "@/lib/types";
 
@@ -251,6 +252,76 @@ describe("FootageClip — Footage Effects", () => {
 
     const leftBox = video!.parentElement as HTMLElement;
     expect(leftBox.style.width).toBe("50%");
+  });
+});
+
+describe("VideoComposition — Transitions (Flash & Whip-Pan)", () => {
+  it("renders zero transition overlays when transitionStyle is none or unset", () => {
+    const state = baseState([
+      { ...footage("c1", "http://media.local/a.mp4"), trackStart: 0, trackEnd: 3, duration: 3 },
+      { ...footage("c2", "http://media.local/b.mp4"), trackStart: 3, trackEnd: 6, duration: 3 },
+    ]);
+    state.transitionStyle = "none";
+    const { container } = mount(state);
+
+    expect(container.querySelector("[data-testid='flash-transition']")).toBeNull();
+  });
+
+  it("renders FlashTransition at contiguous clip boundaries when transitionStyle is flash", () => {
+    const state = baseState([
+      { ...footage("c1", "http://media.local/a.mp4"), trackStart: 0, trackEnd: 3, duration: 3 },
+      { ...footage("c2", "http://media.local/b.mp4"), trackStart: 3, trackEnd: 6, duration: 3 },
+    ]);
+    state.transitionStyle = "flash";
+    const { container } = mount(state);
+
+    const flash = container.querySelector("[data-testid='flash-transition']");
+    expect(flash).not.toBeNull();
+
+    // Check Sequence data-from at frame 90 - 3 = 87 (for 6 flashFrames centered at boundary 90)
+    const flashSeq = container.querySelector("[data-sequence='flash-transition-90']");
+    expect(flashSeq).not.toBeNull();
+    expect(flashSeq?.getAttribute("data-from")).toBe("87");
+    expect(flashSeq?.getAttribute("data-duration")).toBe("6");
+  });
+
+  it("applies whip-pan transitions to outgoing and incoming footage clips when transitionStyle is whip-pan", () => {
+    const state = baseState([
+      { ...footage("c1", "http://media.local/a.mp4"), trackStart: 0, trackEnd: 3, duration: 3 },
+      { ...footage("c2", "http://media.local/b.mp4"), trackStart: 3, trackEnd: 6, duration: 3 },
+    ]);
+    state.transitionStyle = "whip-pan";
+    const { container } = mount(state);
+
+    const videos = container.querySelectorAll("video");
+    expect(videos).toHaveLength(2);
+
+    // No flash transition overlay
+    expect(container.querySelector("[data-testid='flash-transition']")).toBeNull();
+  });
+
+  it("renders FlashTransition component with custom color and opacity correctly", () => {
+    const { container } = render(<FlashTransition color="#ff0000" flashFrames={6} />);
+    const flash = container.querySelector("[data-testid='flash-transition']") as HTMLElement;
+    expect(flash).not.toBeNull();
+    expect(flash.style.backgroundColor).toBe("rgb(255, 0, 0)");
+    expect(flash.style.pointerEvents).toBe("none");
+  });
+
+  it("renders FootageClip with enterTransition and exitTransition correctly", () => {
+    const { container: enterClip } = render(
+      <FootageClip
+        resolvedUrl="http://media.local/enter.mp4"
+        startFromFrames={0}
+        durationFrames={90}
+        enterTransition="whip-pan"
+      />
+    );
+    const enterVideo = enterClip.querySelector("video") as HTMLVideoElement;
+    expect(enterVideo).not.toBeNull();
+    // At frame 0 (from remotionMock useCurrentFrame => 0), enterTransition has blur and translateX(-40%)
+    expect(enterVideo.style.filter).toContain("blur(12.00px)");
+    expect(enterVideo.style.transform).toBe("translateX(-40.00%)");
   });
 });
 

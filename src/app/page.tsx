@@ -387,8 +387,12 @@ export default function DashboardPage() {
                       <StatusBadge stage={job.stage} status={job.status} size="sm" />
 
                       <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
-                        <span className="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700/60 font-mono">
-                          TTS: {job.tts_provider}
+                        <span className={`px-1.5 py-0.5 rounded border font-mono ${
+                          job.tts_provider === "custom"
+                            ? "bg-purple-950/60 text-purple-300 border-purple-800/60"
+                            : "bg-slate-800 text-slate-300 border-slate-700/60"
+                        }`}>
+                          {job.tts_provider === "custom" ? "Audio: Custom" : `TTS: ${job.tts_provider}`}
                         </span>
                         <span className="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700/60 font-mono">
                           Align: {job.aligner_provider}

@@ -13,6 +13,13 @@ export function formatDuration(seconds: number): string {
   return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}.${ms}`;
 }
 
+export function formatFileSize(bytes: number): string {
+  if (!bytes || bytes <= 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
+}
+
 /**
  * Formats render duration and elapsed time into human-friendly MM:SS format,
  * e.g. "01:30s" or "01:30s (1m 30s)"

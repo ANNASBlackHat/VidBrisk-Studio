@@ -11,6 +11,8 @@ import {
 } from "remotion";
 import { EditorProjectState, EditorClip } from "@/adapters/timelineToEditorState";
 import { getMotionComponent } from "@/components/motion/registry";
+import { FlashTransition } from "@/components/motion/FlashTransition";
+import { getStreamBoundaries } from "@/lib/transitions";
 import { LayoutRole, ColorTreatment, FootageEffects } from "@/lib/types";
 import { resolveMediaUrl } from "@/lib/utils";
 
@@ -86,6 +88,8 @@ export interface FootageClipProps {
   durationFrames: number;
   containerStyle?: React.CSSProperties;
   effects?: FootageEffects;
+  exitTransition?: "whip-pan";
+  enterTransition?: "whip-pan";
 }
 
 export const FootageClip: React.FC<FootageClipProps> = ({
@@ -94,13 +98,54 @@ export const FootageClip: React.FC<FootageClipProps> = ({
   durationFrames,
   containerStyle,
   effects,
+  exitTransition,
+  enterTransition,
 }) => {
   const frame = useCurrentFrame();
   const scale = interpolate(frame, [0, durationFrames], [1.0, 1.05], {
     extrapolateRight: "clamp",
   });
 
-  const filter = getColorTreatmentFilter(effects?.colorTreatment);
+  const transitionFrames = Math.min(8, Math.max(1, Math.floor(durationFrames / 2)));
+  let translateX = 0;
+  let blurPx = 0;
+
+  if (enterTransition === "whip-pan" && frame < transitionFrames) {
+    translateX = interpolate(frame, [0, transitionFrames], [-40, 0], {
+      extrapolateLeft: "clamp",
+      extrapolateRight: "clamp",
+    });
+    blurPx = interpolate(frame, [0, transitionFrames], [12, 0], {
+      extrapolateLeft: "clamp",
+      extrapolateRight: "clamp",
+    });
+  } else if (
+    exitTransition === "whip-pan" &&
+    frame >= durationFrames - transitionFrames
+  ) {
+    translateX = interpolate(
+      frame,
+      [durationFrames - transitionFrames, durationFrames],
+      [0, 40],
+      {
+        extrapolateLeft: "clamp",
+        extrapolateRight: "clamp",
+      }
+    );
+    blurPx = interpolate(
+      frame,
+      [durationFrames - transitionFrames, durationFrames],
+      [0, 12],
+      {
+        extrapolateLeft: "clamp",
+        extrapolateRight: "clamp",
+      }
+    );
+  }
+
+  const baseFilter = getColorTreatmentFilter(effects?.colorTreatment);
+  const blurFilter = blurPx > 0 ? `blur(${blurPx.toFixed(2)}px)` : undefined;
+  const filter = [baseFilter, blurFilter].filter(Boolean).join(" ") || undefined;
 
   const entranceWindow = Math.max(1, Math.floor(durationFrames * 0.15));
   const vignetteDarkness = interpolate(
@@ -120,6 +165,7 @@ export const FootageClip: React.FC<FootageClipProps> = ({
           height: "100%",
           objectFit: "cover",
           scale: `${scale}`,
+          transform: translateX !== 0 ? `translateX(${translateX.toFixed(2)}%)` : undefined,
           filter,
         }}
         volume={0} // Mute raw footage audio to give full clarity to Voiceover
@@ -157,6 +203,21 @@ export function VideoComposition({ projectState }: VideoCompositionProps) {
   const videoTrack = projectState.tracks.find((t) => t.id === "video");
   const textTrack = projectState.tracks.find((t) => t.id === "text");
   const audioTrack = projectState.tracks.find((t) => t.id === "audio");
+
+  const boundaries = React.useMemo(() => {
+    if (!videoTrack?.items) return [];
+    return getStreamBoundaries(videoTrack.items, fps);
+  }, [videoTrack?.items, fps]);
+
+  const exitClipIds = React.useMemo(() => {
+    if (projectState.transitionStyle !== "whip-pan") return new Set<string>();
+    return new Set(boundaries.map((b) => b.a.id));
+  }, [boundaries, projectState.transitionStyle]);
+
+  const enterClipIds = React.useMemo(() => {
+    if (projectState.transitionStyle !== "whip-pan") return new Set<string>();
+    return new Set(boundaries.map((b) => b.b.id));
+  }, [boundaries, projectState.transitionStyle]);
 
   // Renders one visual layer. Multiple items with overlapping
   // trackStart/trackEnd coexist by design — stacking order follows the
@@ -212,6 +273,9 @@ export function VideoComposition({ projectState }: VideoCompositionProps) {
       );
     }
 
+    const exitTransition = exitClipIds.has(item.id) ? ("whip-pan" as const) : undefined;
+    const enterTransition = enterClipIds.has(item.id) ? ("whip-pan" as const) : undefined;
+
     return (
       <Sequence
         key={item.id}
@@ -225,6 +289,8 @@ export function VideoComposition({ projectState }: VideoCompositionProps) {
           durationFrames={durationFrames}
           containerStyle={{ ...geometry, pointerEvents: isOverlayRole(item) ? "none" : undefined }}
           effects={item.effects}
+          exitTransition={exitTransition}
+          enterTransition={enterTransition}
         />
       </Sequence>
     );
@@ -284,10 +350,28 @@ export function VideoComposition({ projectState }: VideoCompositionProps) {
       {/* 1. Video & Motion Layers — zIndex-sorted, overlapping by design */}
       {videoTrack?.items.map((item) => renderLayer(item))}
 
-      {/* 2. Text / Captions Overlay Layer */}
+      {/* 2. Clip-Boundary Flash Transitions (rendered above video layers) */}
+      {projectState.transitionStyle === "flash" &&
+        boundaries.map((boundary, idx) => {
+          const flashFrames = 6;
+          const half = Math.floor(flashFrames / 2);
+          const from = Math.max(0, boundary.boundaryFrame - half);
+          return (
+            <Sequence
+              key={`flash-${boundary.a.id}-${boundary.b.id}-${idx}`}
+              from={from}
+              durationInFrames={flashFrames}
+              name={`flash-transition-${boundary.boundaryFrame}`}
+            >
+              <FlashTransition flashFrames={flashFrames} />
+            </Sequence>
+          );
+        })}
+
+      {/* 3. Text / Captions Overlay Layer */}
       {textTrack?.items.map((item) => renderTextItem(item))}
 
-      {/* 3. Audio Voiceover Track Layer */}
+      {/* 4. Audio Voiceover Track Layer */}
       {audioTrack?.items.map((item) => renderAudioItem(item))}
     </AbsoluteFill>
   );

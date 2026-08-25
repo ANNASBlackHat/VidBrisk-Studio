@@ -235,8 +235,12 @@ export default function JobProgressPage() {
             </span>
           </div>
 
-          <div className="px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs font-mono text-slate-400">
-            TTS: {job.tts_provider}
+          <div className={`px-2.5 py-1.5 rounded-lg border text-xs font-mono ${
+            job.tts_provider === "custom"
+              ? "bg-purple-950/40 border-purple-800/60 text-purple-300"
+              : "bg-slate-900 border-slate-800 text-slate-400"
+          }`}>
+            {job.tts_provider === "custom" ? "Audio: Custom Upload" : `TTS: ${job.tts_provider}`}
           </div>
 
           {isDone && (

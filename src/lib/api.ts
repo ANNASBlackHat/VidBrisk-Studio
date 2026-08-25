@@ -28,10 +28,13 @@ async function request<T>(
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`;
 
-  const headers: HeadersInit = {
-    "Content-Type": "application/json",
-    ...options.headers,
+  const headers: Record<string, string> = {
+    ...((options.headers as Record<string, string>) || {}),
   };
+
+  if (!(options.body instanceof FormData) && !headers["Content-Type"]) {
+    headers["Content-Type"] = "application/json";
+  }
 
   const config: RequestInit = {
     ...options,
@@ -110,9 +113,33 @@ export const api = {
   },
 
   /**
-   * Submit a new video generation job
+   * Submit a new video generation job (supports JSON and multipart upload for custom audio)
    */
-  async createJob(payload: JobCreateRequest): Promise<JobResponse> {
+  async createJob(
+    payload: JobCreateRequest,
+    audioFile?: File | Blob | null
+  ): Promise<JobResponse> {
+    const file = audioFile || (payload.audio_file as File | Blob | undefined);
+    if (file) {
+      const formData = new FormData();
+      if (payload.title) formData.append("title", payload.title);
+      if (payload.raw_input) formData.append("raw_input", payload.raw_input);
+      if (payload.script) formData.append("script", payload.script);
+      if (payload.prompt) formData.append("prompt", payload.prompt);
+      if (payload.target_orientation) formData.append("target_orientation", payload.target_orientation);
+      if (payload.auto_approve !== undefined) formData.append("auto_approve", String(payload.auto_approve));
+      if (payload.aligner_provider) formData.append("aligner_provider", payload.aligner_provider);
+      if (payload.single_pass_llm !== undefined) formData.append("single_pass_llm", String(payload.single_pass_llm));
+      formData.append("voice_type", "custom");
+      formData.append("tts_provider", payload.tts_provider || "custom");
+      formData.append("audio_file", file);
+
+      return request<JobResponse>("/jobs", {
+        method: "POST",
+        body: formData,
+      });
+    }
+
     return request<JobResponse>("/jobs", {
       method: "POST",
       body: JSON.stringify(payload),

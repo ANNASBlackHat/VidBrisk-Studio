@@ -22,6 +22,8 @@ export type JobStatus =
 
 export type TargetOrientation = "horizontal" | "vertical" | "square" | "any";
 
+export type TransitionStyle = "none" | "flash" | "whip-pan";
+
 export type ColorTreatment =
   | "none"
   | "duotone-cool"
@@ -210,17 +212,22 @@ export interface TimelineJSON {
       candidates?: FootageCandidate[];
       asset_plan?: ResolvedBeatAssetPlan;
     }>;
+    transition_style?: TransitionStyle;
   };
 }
 
 export interface JobCreateRequest {
   title?: string;
-  raw_input: string;
-  tts_provider?: "kokoro" | "supersonic" | "chatterbox" | "mock" | string;
+  raw_input?: string;
+  script?: string;
+  prompt?: string;
+  voice_type?: "tts" | "custom" | string;
+  tts_provider?: "kokoro" | "supersonic" | "chatterbox" | "custom" | "mock" | string;
   aligner_provider?: "easytranscriber" | "whisperx" | "mock" | string;
   target_orientation?: TargetOrientation;
   auto_approve?: boolean;
   single_pass_llm?: boolean;
+  audio_file?: File | Blob;
 }
 
 export interface JobUpdateRequest {

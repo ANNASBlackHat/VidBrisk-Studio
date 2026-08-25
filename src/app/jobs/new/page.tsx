@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -18,10 +18,26 @@ import {
   Loader2,
   AlertCircle,
   FileText,
+  UploadCloud,
+  FileAudio,
+  Trash2,
+  RefreshCw,
+  Music,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { JobCreateRequest, TargetOrientation } from "@/lib/types";
 import { PresetSelector } from "@/components/ui/PresetSelector";
+import { cn, formatDuration, formatFileSize } from "@/lib/utils";
+
+const TTS_VOICE_PRESETS = [
+  { id: "af_heart", name: "Heart", gender: "Female", accent: "American", desc: "Warm, natural narration" },
+  { id: "af_bella", name: "Bella", gender: "Female", accent: "American", desc: "Expressive & dynamic" },
+  { id: "af_nicole", name: "Nicole", gender: "Female", accent: "American", desc: "Crisp & professional" },
+  { id: "am_adam", name: "Adam", gender: "Male", accent: "American", desc: "Deep & articulate" },
+  { id: "am_michael", name: "Michael", gender: "Male", accent: "American", desc: "Authoritative & clear" },
+  { id: "bf_emma", name: "Emma", gender: "Female", accent: "British", desc: "Refined & articulate" },
+  { id: "bm_george", name: "George", gender: "Male", accent: "British", desc: "Documentary tone" },
+];
 
 export default function NewVideoPage() {
   const router = useRouter();
@@ -31,6 +47,15 @@ export default function NewVideoPage() {
   const [targetOrientation, setTargetOrientation] =
     useState<TargetOrientation>("horizontal");
   const [autoApprove, setAutoApprove] = useState<boolean>(false); // Default false per SPEC §7
+
+  // Voiceover Source State
+  const [voiceSource, setVoiceSource] = useState<"tts" | "upload">("tts");
+  const [ttsVoice, setTtsVoice] = useState<string>("af_heart");
+  const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [audioPreviewUrl, setAudioPreviewUrl] = useState<string | null>(null);
+  const [audioDuration, setAudioDuration] = useState<number | null>(null);
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Advanced options
   const [showAdvanced, setShowAdvanced] = useState<boolean>(false);
@@ -45,9 +70,80 @@ export default function NewVideoPage() {
   const wordCount = rawInput.trim() ? rawInput.trim().split(/\s+/).length : 0;
   const charCount = rawInput.length;
 
+  useEffect(() => {
+    return () => {
+      if (audioPreviewUrl) {
+        URL.revokeObjectURL(audioPreviewUrl);
+      }
+    };
+  }, [audioPreviewUrl]);
+
+  const handleAudioFileSelect = (file: File | null) => {
+    if (audioPreviewUrl) {
+      URL.revokeObjectURL(audioPreviewUrl);
+    }
+    if (!file) {
+      setAudioFile(null);
+      setAudioPreviewUrl(null);
+      setAudioDuration(null);
+      return;
+    }
+
+    // 50 MB limit
+    const MAX_SIZE = 50 * 1024 * 1024;
+    if (file.size > MAX_SIZE) {
+      setErrorMessage("Audio file exceeds maximum size of 50 MB.");
+      return;
+    }
+
+    const url = URL.createObjectURL(file);
+    setAudioFile(file);
+    setAudioPreviewUrl(url);
+    setErrorMessage(null);
+
+    // Auto-detect duration
+    const tempAudio = new Audio(url);
+    tempAudio.onloadedmetadata = () => {
+      setAudioDuration(tempAudio.duration);
+    };
+
+    // If title is empty, suggest filename without extension
+    if (!title) {
+      const baseName = file.name.replace(/\.[^/.]+$/, "").replace(/[_-]/g, " ");
+      setTitle(baseName.charAt(0).toUpperCase() + baseName.slice(1));
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleAudioFileSelect(e.dataTransfer.files[0]);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!rawInput.trim() || rawInput.trim().length < 5) {
+
+    if (voiceSource === "upload" && !audioFile) {
+      setErrorMessage("Please upload an audio file or switch to AI Voice Synthesis.");
+      return;
+    }
+
+    if (voiceSource === "tts" && (!rawInput.trim() || rawInput.trim().length < 5)) {
       setErrorMessage("Please enter a script or topic (at least 5 characters).");
       return;
     }
@@ -57,16 +153,17 @@ export default function NewVideoPage() {
 
     const payload: JobCreateRequest = {
       title: title.trim() || undefined,
-      raw_input: rawInput.trim(),
+      raw_input: rawInput.trim() || (audioFile ? `Custom voiceover: ${audioFile.name}` : ""),
       target_orientation: targetOrientation,
       auto_approve: autoApprove,
-      tts_provider: ttsProvider,
+      tts_provider: voiceSource === "upload" ? "custom" : ttsProvider,
       aligner_provider: alignerProvider,
       single_pass_llm: singlePassLlm,
+      voice_type: voiceSource === "upload" ? "custom" : ttsVoice,
     };
 
     try {
-      const job = await api.createJob(payload);
+      const job = await api.createJob(payload, voiceSource === "upload" ? audioFile : null);
       router.push(`/jobs/${job.id}`);
     } catch (err: unknown) {
       console.error("Submission failed:", err);
@@ -178,14 +275,199 @@ export default function NewVideoPage() {
             rows={8}
             value={rawInput}
             onChange={(e) => setRawInput(e.target.value)}
-            placeholder="Paste your raw script, article, or visual notes here...
-
-e.g.
-[VISUAL: Rocket taking off]
-In July 1969, three astronauts embarked on humanity's most daring voyage to the Moon.
-Neil Armstrong stepped onto the lunar surface..."
+            placeholder={
+              voiceSource === "upload"
+                ? "Optional: Paste the reference transcript for your uploaded audio (helps align words accurately)..."
+                : "Paste your raw script, article, or visual notes here...\n\ne.g.\n[VISUAL: Rocket taking off]\nIn July 1969, three astronauts embarked on humanity's most daring voyage to the Moon.\nNeil Armstrong stepped onto the lunar surface..."
+            }
             className="w-full mt-1 p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 text-slate-100 placeholder-slate-500 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all resize-y"
           />
+        </div>
+
+        {/* Voiceover Audio Source: AI Synthesis vs Upload */}
+        <div className="flex flex-col gap-4 p-5 rounded-2xl bg-slate-900/60 border border-slate-800/80">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-semibold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+              <Mic className="w-3.5 h-3.5 text-blue-400" />
+              <span>Voiceover Audio Source</span>
+            </label>
+            <span className="text-[11px] text-slate-500 font-normal">
+              {voiceSource === "tts" ? "AI Generated Voice" : "Pre-recorded Audio File"}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => setVoiceSource("tts")}
+              className={cn(
+                "flex items-start gap-3 p-3.5 rounded-xl border transition-all text-left",
+                voiceSource === "tts"
+                  ? "bg-blue-950/40 border-blue-500 text-blue-100 shadow-sm shadow-blue-500/20"
+                  : "bg-slate-950/40 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200"
+              )}
+            >
+              <div className={cn("p-2 rounded-lg mt-0.5", voiceSource === "tts" ? "bg-blue-600/20 text-blue-400" : "bg-slate-800/60 text-slate-500")}>
+                <Sparkles className="w-4 h-4" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-semibold text-slate-100">AI Voice Synthesis</div>
+                <div className="text-[11px] text-slate-400 mt-0.5">Generate voiceover with Kokoro TTS</div>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setVoiceSource("upload")}
+              className={cn(
+                "flex items-start gap-3 p-3.5 rounded-xl border transition-all text-left",
+                voiceSource === "upload"
+                  ? "bg-purple-950/40 border-purple-500 text-purple-100 shadow-sm shadow-purple-500/20"
+                  : "bg-slate-950/40 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200"
+              )}
+            >
+              <div className={cn("p-2 rounded-lg mt-0.5", voiceSource === "upload" ? "bg-purple-600/20 text-purple-400" : "bg-slate-800/60 text-slate-500")}>
+                <UploadCloud className="w-4 h-4" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-semibold text-slate-100">Upload Custom Audio</div>
+                <div className="text-[11px] text-slate-400 mt-0.5">Use your pre-recorded MP3 / WAV file</div>
+              </div>
+            </button>
+          </div>
+
+          {/* Conditional Voice Configuration */}
+          {voiceSource === "tts" ? (
+            <div className="flex flex-col gap-2.5 pt-2 border-t border-slate-800/60">
+              <label className="text-xs font-medium text-slate-400">
+                Select Voice Persona
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                {TTS_VOICE_PRESETS.map((v) => {
+                  const isSelected = ttsVoice === v.id;
+                  return (
+                    <button
+                      key={v.id}
+                      type="button"
+                      onClick={() => setTtsVoice(v.id)}
+                      className={cn(
+                        "flex flex-col p-2.5 rounded-xl border text-left transition-all",
+                        isSelected
+                          ? "bg-blue-900/30 border-blue-500 text-white"
+                          : "bg-slate-950/30 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200"
+                      )}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold">{v.name}</span>
+                        <span className="text-[10px] text-slate-500 font-mono">{v.gender[0]}</span>
+                      </div>
+                      <span className="text-[10px] text-slate-400 mt-0.5">{v.desc}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3 pt-2 border-t border-slate-800/60">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="audio/*,.mp3,.wav,.m4a,.aac,.flac"
+                onChange={(e) => {
+                  if (e.target.files && e.target.files[0]) {
+                    handleAudioFileSelect(e.target.files[0]);
+                  }
+                }}
+                className="hidden"
+              />
+
+              {!audioFile ? (
+                <div
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  onClick={() => fileInputRef.current?.click()}
+                  className={cn(
+                    "flex flex-col items-center justify-center p-8 rounded-xl border-2 border-dashed transition-all cursor-pointer text-center",
+                    isDragging
+                      ? "border-purple-500 bg-purple-950/30"
+                      : "border-slate-800 bg-slate-950/40 hover:border-slate-700 hover:bg-slate-950/70"
+                  )}
+                >
+                  <div className="w-12 h-12 rounded-full bg-purple-950/60 border border-purple-800/40 flex items-center justify-center text-purple-400 mb-3">
+                    <UploadCloud className="w-6 h-6" />
+                  </div>
+                  <span className="text-sm font-semibold text-slate-200">
+                    Click to browse or drag & drop audio
+                  </span>
+                  <span className="text-xs text-slate-400 mt-1">
+                    MP3, WAV, M4A, AAC, or FLAC (Max 50 MB)
+                  </span>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3 p-4 rounded-xl bg-slate-950/80 border border-purple-800/50">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="p-2.5 rounded-lg bg-purple-950/80 border border-purple-800/60 text-purple-400 shrink-0">
+                        <FileAudio className="w-5 h-5" />
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-sm font-semibold text-slate-100 truncate">
+                          {audioFile.name}
+                        </span>
+                        <div className="flex items-center gap-2 text-xs text-slate-400 mt-0.5">
+                          <span>{formatFileSize(audioFile.size)}</span>
+                          {audioDuration !== null && (
+                            <>
+                              <span>•</span>
+                              <span>{formatDuration(audioDuration)}</span>
+                            </>
+                          )}
+                          <span>•</span>
+                          <span className="uppercase font-mono text-[10px] px-1.5 py-0.2 rounded bg-purple-950 text-purple-300 border border-purple-800/60">
+                            {audioFile.name.split(".").pop() || "Audio"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
+                        title="Replace Audio File"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleAudioFileSelect(null)}
+                        className="p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition-colors"
+                        title="Remove Audio File"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {audioPreviewUrl && (
+                    <div className="flex flex-col gap-1.5 pt-2 border-t border-slate-900">
+                      <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
+                        <Music className="w-3 h-3 text-purple-400" />
+                        <span>Voiceover Preview & Audio Check</span>
+                      </div>
+                      <audio
+                        controls
+                        src={audioPreviewUrl}
+                        className="w-full h-10 rounded-lg accent-purple-500"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Orientation / Aspect Ratio Picker */}
@@ -374,7 +656,7 @@ Neil Armstrong stepped onto the lunar surface..."
           </Link>
           <button
             type="submit"
-            disabled={isSubmitting || !rawInput.trim()}
+            disabled={isSubmitting || (voiceSource === "tts" ? !rawInput.trim() : !audioFile)}
             className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-blue-500/25 active:scale-95 transition-all"
           >
             {isSubmitting ? (

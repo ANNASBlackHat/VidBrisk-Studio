@@ -56,6 +56,7 @@ function collectScopedFiles(rootDir: string): { abs: string; rel: string }[] {
   pushFile("src/remotion/index.tsx");
   pushFile("src/lib/types.ts");
   pushFile("src/lib/utils.ts");
+  pushFile("src/lib/transitions.ts");
   pushFile("src/adapters/timelineToEditorState.ts");
   pushFile("src/components/editor/VideoComposition.tsx");
   pushDir("src/components/motion");
@@ -118,8 +119,8 @@ function buildNotebookJson(jobId: string): string {
       {
         cell_type: "code",
         source: [
-          "# Step 1: Check Environment\n",
-          "!node -v && echo \"---\" && nproc && echo \"vCPUs\" && echo \"---\" && ffmpeg -version | head -n1\n",
+          "# Step 1: Check Environment (Node, vCPUs, RAM, FFmpeg)\n",
+          "!node -v && echo \"---\" && echo \"vCPUs: $(nproc)\" && free -h | grep Mem && echo \"---\" && ffmpeg -version | head -n1\n",
         ],
         metadata: {},
         execution_count: null,
@@ -151,9 +152,9 @@ function buildNotebookJson(jobId: string): string {
       {
         cell_type: "code",
         source: [
-          "# Step 3: Render Video (frame-accurate Remotion + FFmpeg H.264/AAC)\n",
+          "# Step 3: Inspect Bundle & Chunk Plan (project_state + chunk partitioning preview)\n",
           "BUNDLE_DIR=$(ls -d colab-render-*/ 2>/dev/null | head -n1); BUNDLE_DIR=${BUNDLE_DIR:-.}\n",
-          "!cd $BUNDLE_DIR 2>/dev/null || cd .; echo \"Bundle dir: $(pwd)\" && ls -lh project_state.json scripts/render_colab.mjs 2>&1 | head\n",
+          "!cd $BUNDLE_DIR 2>/dev/null || cd .; echo \"Bundle dir: $(pwd)\" && ls -lh project_state.json scripts/render_colab.mjs 2>&1 | head && echo \"---\" && cat project_state.json | python3 -c \"import json,sys; s=json.load(open('project_state.json')); print(f\\\"Duration: {s.get('totalDuration')}s | Frames: {int(s.get('totalDuration',0)*s.get('fps',30))} | Chunks: N=min(6,max(2,cpu))\\\")\" 2>&1 | head\n",
         ],
         metadata: {},
         execution_count: null,
@@ -162,7 +163,8 @@ function buildNotebookJson(jobId: string): string {
       {
         cell_type: "code",
         source: [
-          "# Step 3b: Execute Render (parallel asset cache → range server → Chromium → FFmpeg H.264/AAC)\n",
+          "# Step 3b: Parallel Chunk Render (N workers via Promise.all → FFmpeg concat stitch in <1s)\n",
+          "# Each worker renders frameRange [start,end] to .chunks/chunk_*.mp4 concurrently — 8-10GB RAM & 100% vCPUs\n",
           "BUNDLE_DIR=$(ls -d colab-render-*/ 2>/dev/null | head -n1); BUNDLE_DIR=${BUNDLE_DIR:-.}\n",
           "!cd $BUNDLE_DIR 2>/dev/null || cd .; node scripts/render_colab.mjs --state project_state.json --out output.mp4\n",
         ],
@@ -240,7 +242,8 @@ export async function POST(request: NextRequest) {
           const found = tryPaths.find((p) => fs.existsSync(p) && fs.statSync(p).isFile());
           if (found) {
             const basename = path.basename(found);
-            const zippedAs = `assets/${basename}`;
+            const isAudio = key === "assetId" || /\.(wav|mp3|m4a|aac|ogg|flac)$/i.test(basename);
+            const zippedAs = isAudio ? `assets/audio/${basename}` : `assets/${basename}`;
             if (!embeddedAssets.some((a) => a.zippedAs === zippedAs)) {
               embeddedAssets.push({ original: found, zippedAs });
             }

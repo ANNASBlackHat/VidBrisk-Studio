@@ -87,6 +87,9 @@ export const remotionMock = () => {
     exp: (t: number) => t,
   };
 
+  const delayRender = (label?: string) => 1;
+  const continueRender = (handle: number) => {};
+
   return {
     AbsoluteFill,
     Sequence,
@@ -97,5 +100,7 @@ export const remotionMock = () => {
     interpolate,
     spring,
     Easing,
+    delayRender,
+    continueRender,
   };
 };

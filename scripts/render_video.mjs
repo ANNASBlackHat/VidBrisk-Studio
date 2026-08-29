@@ -10,10 +10,30 @@ import { bundleRemotion } from "./bundle_remotion.mjs";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..");
 
+function resolveLocalPath(p) {
+  if (!p || typeof p !== "string") return null;
+  const clean = p.replace(/^file:\/\//, "");
+  const candidates = [
+    clean,
+    path.resolve(clean),
+    path.resolve(rootDir, clean),
+    path.resolve(rootDir, "..", "video-generation-pipeline", clean),
+    path.resolve(rootDir, "..", clean),
+    path.resolve(rootDir, "public", clean),
+  ];
+  for (const cand of candidates) {
+    if (fs.existsSync(cand)) {
+      return cand;
+    }
+  }
+  return null;
+}
+
 // Start micro HTTP media server for Remotion to access local audio/video files with Range seek support
 const mediaServer = http.createServer((req, res) => {
   const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
-  const filePath = parsedUrl.searchParams.get("path");
+  const rawPath = parsedUrl.searchParams.get("path");
+  const filePath = resolveLocalPath(rawPath) || rawPath;
   if (filePath && fs.existsSync(filePath)) {
     const ext = path.extname(filePath).toLowerCase();
     const contentType =
@@ -67,14 +87,30 @@ const mediaBaseUrl = `http://127.0.0.1:${mediaPort}`;
 function toHttpUrl(p) {
   if (!p) return "";
   if (p.startsWith("http://") || p.startsWith("https://")) return p;
-  const clean = p.replace("file://", "");
-  return `${mediaBaseUrl}/media?path=${encodeURIComponent(clean)}`;
+  const resolved = resolveLocalPath(p) || p.replace(/^file:\/\//, "");
+  return `${mediaBaseUrl}/media?path=${encodeURIComponent(resolved)}`;
 }
 
 async function cacheMediaLocally(url) {
   if (!url || typeof url !== "string") return url;
   if (!url.startsWith("http://") && !url.startsWith("https://")) {
-    return toHttpUrl(url);
+    const resolved = resolveLocalPath(url);
+    if (resolved) {
+      return toHttpUrl(resolved);
+    }
+    // If not found on disk, attempt fetching from backend static server
+    const cleanUrl = url.replace(/^file:\/\//, "").replace(/^\/+/, "");
+    const backendUrl = `http://127.0.0.1:8000/static/${cleanUrl}`;
+    try {
+      const checkRes = await fetch(backendUrl, { method: "HEAD" });
+      if (checkRes.ok) {
+        url = backendUrl;
+      } else {
+        return toHttpUrl(url);
+      }
+    } catch {
+      return toHttpUrl(url);
+    }
   }
   // If already served by our local micro server
   if (url.startsWith(mediaBaseUrl)) return url;
@@ -307,6 +343,10 @@ const result = await renderMedia({
   concurrency: 2,
   chromiumOptions: {
     args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-gpu-sandbox",
       "--allow-file-access-from-files",
       "--disable-web-security",
       "--autoplay-policy=no-user-gesture-required",

@@ -16,10 +16,29 @@ import { bundleRemotion } from "./bundle_remotion.mjs";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..");
 
+function resolveLocalPath(p) {
+  if (!p || typeof p !== "string") return null;
+  const clean = p.replace(/^file:\/\//, "");
+  const candidates = [
+    clean,
+    path.resolve(clean),
+    path.resolve(rootDir, clean),
+    path.resolve(process.cwd(), clean),
+    path.resolve(rootDir, "assets", clean.replace(/^assets\//, "")),
+  ];
+  for (const cand of candidates) {
+    if (fs.existsSync(cand)) {
+      return cand;
+    }
+  }
+  return null;
+}
+
 // --- Micro Range HTTP Server (127.0.0.1, random port, 206 Partial Content) ---
 const mediaServer = http.createServer((req, res) => {
   const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
-  const filePath = parsedUrl.searchParams.get("path");
+  const rawPath = parsedUrl.searchParams.get("path");
+  const filePath = resolveLocalPath(rawPath) || rawPath;
   if (filePath && fs.existsSync(filePath)) {
     const ext = path.extname(filePath).toLowerCase();
     const contentType =
@@ -82,17 +101,9 @@ try {
 function toHttpUrl(p) {
   if (!p) return "";
   if (p.startsWith("http://") || p.startsWith("https://")) return p;
-  if (p.startsWith("assets/") || p.startsWith("/assets/") || p.startsWith("assets\\")) {
-    const candidates = [
-      path.join(rootDir, p.replace(/^\//, "")),
-      path.join(process.cwd(), p.replace(/^\//, "")),
-      path.resolve(p),
-    ];
-    for (const c of candidates) if (fs.existsSync(c)) return `${mediaBaseUrl}/media?path=${encodeURIComponent(c)}`;
-    return p;
-  }
+  const resolved = resolveLocalPath(p);
+  if (resolved) return `${mediaBaseUrl}/media?path=${encodeURIComponent(resolved)}`;
   const clean = p.replace("file://", "");
-  if (fs.existsSync(clean)) return `${mediaBaseUrl}/media?path=${encodeURIComponent(clean)}`;
   return `${mediaBaseUrl}/media?path=${encodeURIComponent(clean)}`;
 }
 

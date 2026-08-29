@@ -11,6 +11,9 @@ import {
   SplitScreen,
   SwipeDeck,
   ChatBubbles,
+  MapExplainer,
+  AudioWaveform,
+  KineticCaptions,
 } from "./registry";
 import { Sparkles, Layers } from "lucide-react";
 
@@ -106,6 +109,41 @@ export function MotionGallery() {
             leftContent="$7 Billion Target"
             rightTitle="Actual Expenditure"
             rightContent="$25.4 Billion Realized"
+          />
+        );
+      case "GeoAnimations/MapExplainer":
+        return (
+          <MapExplainer
+            origin="Cape Canaveral"
+            destination="Pacific Ocean"
+            title="APOLLO 11 RECOVERY TRAJECTORY"
+            subtext="TRANSLUNAR RETURN"
+            mode="route"
+            themeColor="#38bdf8"
+            durationInFrames={180}
+            layoutRole="takeover"
+          />
+        );
+      case "AudioAnimations/AudioWaveform":
+        return (
+          <AudioWaveform
+            speaker="NEIL ARMSTRONG"
+            title="APOLLO 11 TRANSMISSION • TRANQUILITY BASE"
+            subtext="VOICE TELEMETRY FEED"
+            quote="That's one small step for man, one giant leap for mankind."
+            themeColor="#10b981"
+            barCount={36}
+            durationInFrames={180}
+            layoutRole="takeover"
+          />
+        );
+      case "TextAnimations/KineticCaptions":
+        return (
+          <KineticCaptions
+            text="Transforming raw footage into viral cinematic video with AI."
+            themeColor="#facc15"
+            durationInFrames={180}
+            layoutRole="takeover"
           />
         );
       default:

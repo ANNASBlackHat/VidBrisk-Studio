@@ -7,9 +7,28 @@ import { Readable } from "stream";
  * Media streaming and proxy endpoint with Range support and permissive CORS.
  * Resolves local file paths (such as synthesized WAVs or cached videos) and remote media URLs.
  */
+function resolveLocalPath(p: string): string | null {
+  const rootDir = process.cwd();
+  const clean = p.replace(/^file:\/\//, "");
+  const candidates = [
+    clean,
+    path.resolve(clean),
+    path.resolve(rootDir, clean),
+    path.resolve(rootDir, "..", "video-generation-pipeline", clean),
+    path.resolve(rootDir, "..", clean),
+    path.resolve(rootDir, "public", clean),
+  ];
+  for (const cand of candidates) {
+    if (fs.existsSync(cand)) {
+      return cand;
+    }
+  }
+  return null;
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const filePath = searchParams.get("path");
+  const rawPath = searchParams.get("path");
   const remoteUrl = searchParams.get("url");
 
   if (remoteUrl) {
@@ -21,7 +40,7 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  if (!filePath) {
+  if (!rawPath) {
     return new NextResponse("Missing 'path' or 'url' query parameter", {
       status: 400,
     });
@@ -29,8 +48,16 @@ export async function GET(request: NextRequest) {
 
   // Handle local filesystem paths
   try {
-    if (!fs.existsSync(filePath)) {
-      return new NextResponse(`File not found: ${filePath}`, { status: 404 });
+    const filePath = resolveLocalPath(rawPath);
+    if (!filePath || !fs.existsSync(filePath)) {
+      // If not on disk, check if it can be redirected to the backend static server
+      const clean = rawPath.replace(/^file:\/\//, "").replace(/^\/+/, "");
+      const backendUrl = `${process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") || "http://127.0.0.1:8000"}/static/${clean}`;
+      return NextResponse.redirect(backendUrl, {
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+        },
+      });
     }
 
     const stat = fs.statSync(filePath);

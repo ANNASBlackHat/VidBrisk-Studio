@@ -5,6 +5,7 @@ import {
   Video,
   OffthreadVideo,
   Audio,
+  Img,
   useVideoConfig,
   useCurrentFrame,
   interpolate,
@@ -13,7 +14,9 @@ import { EditorProjectState, EditorClip } from "@/adapters/timelineToEditorState
 import { getMotionComponent } from "@/components/motion/registry";
 import { FlashTransition } from "@/components/motion/FlashTransition";
 import { GlitchTransition } from "@/components/motion/GlitchTransition";
+import { KineticCaptions } from "@/components/motion/KineticCaptions";
 import { getStreamBoundaries } from "@/lib/transitions";
+import { getTransitionSfx } from "@/lib/sfx";
 import { LayoutRole, ColorTreatment, FootageEffects, ClipTransitionKind } from "@/lib/types";
 import { resolveMediaUrl } from "@/lib/utils";
 import { noise2D } from "@remotion/noise";
@@ -92,6 +95,7 @@ export interface FootageClipProps {
   effects?: FootageEffects;
   exitTransition?: ClipTransitionKind;
   enterTransition?: ClipTransitionKind;
+  assetType?: "video" | "image";
 }
 
 export const FootageClip: React.FC<FootageClipProps> = ({
@@ -102,6 +106,7 @@ export const FootageClip: React.FC<FootageClipProps> = ({
   effects,
   exitTransition,
   enterTransition,
+  assetType = "video",
 }) => {
   const frame = useCurrentFrame();
   const scale = interpolate(frame, [0, durationFrames], [1.0, 1.05], {
@@ -190,21 +195,37 @@ export const FootageClip: React.FC<FootageClipProps> = ({
   if (isShake && rotateDeg !== 0) transforms.push(`rotate(${rotateDeg.toFixed(2)}deg)`);
   const transformValue = transforms.length > 0 ? transforms.join(" ") : undefined;
 
+  const isImage = assetType === "image" || /\.(jpe?g|png|webp|avif|gif)$/i.test(resolvedUrl.split("?")[0]);
+
   return (
     <AbsoluteFill style={{ backgroundColor: "#000000", overflow: "hidden", ...containerStyle }}>
-      <Video
-        src={resolvedUrl}
-        startFrom={startFromFrames}
-        style={{
-          width: "100%",
-          height: "100%",
-          objectFit: "cover",
-          scale: `${scale}`,
-          transform: transformValue,
-          filter,
-        }}
-        volume={0} // Mute raw footage audio to give full clarity to Voiceover
-      />
+      {isImage ? (
+        <Img
+          src={resolvedUrl}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            scale: `${scale}`,
+            transform: transformValue,
+            filter,
+          }}
+        />
+      ) : (
+        <Video
+          src={resolvedUrl}
+          startFrom={startFromFrames}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            scale: `${scale}`,
+            transform: transformValue,
+            filter,
+          }}
+          volume={0} // Mute raw footage audio to give full clarity to Voiceover
+        />
+      )}
 
       {effects?.grain && (
         <AbsoluteFill
@@ -331,6 +352,7 @@ export function VideoComposition({ projectState }: VideoCompositionProps) {
           effects={item.effects}
           exitTransition={exitTransition}
           enterTransition={enterTransition}
+          assetType={item.assetType === "image" ? "image" : "video"}
         />
       </Sequence>
     );
@@ -349,18 +371,12 @@ export function VideoComposition({ projectState }: VideoCompositionProps) {
         durationInFrames={durationFrames}
         name={item.id}
       >
-        <AbsoluteFill
-          style={{
-            justifyContent: "flex-end",
-            alignItems: "center",
-            paddingBottom: 48,
-            pointerEvents: "none",
-          }}
-        >
-          <div className="px-6 py-3 rounded-2xl bg-black/85 backdrop-blur-md border border-white/10 text-white text-base sm:text-xl font-medium text-center max-w-3xl shadow-2xl">
-            {item.content}
-          </div>
-        </AbsoluteFill>
+        <KineticCaptions
+          text={item.content}
+          timings={item.timings}
+          durationInFrames={durationFrames}
+          layoutRole="overlay-lower-third"
+        />
       </Sequence>
     );
   };
@@ -421,6 +437,25 @@ export function VideoComposition({ projectState }: VideoCompositionProps) {
               name={`glitch-transition-${boundary.boundaryFrame}`}
             >
               <GlitchTransition glitchFrames={glitchFrames} />
+            </Sequence>
+          );
+        })}
+
+      {/* 2b. Transition Sound Effects (synced with cut boundary frames) */}
+      {projectState.transitionStyle &&
+        projectState.transitionStyle !== "none" &&
+        boundaries.map((boundary, idx) => {
+          const sfx = getTransitionSfx(projectState.transitionStyle);
+          if (!sfx) return null;
+          const from = Math.max(0, boundary.boundaryFrame - sfx.leadFrames);
+          return (
+            <Sequence
+              key={`sfx-${boundary.a.id}-${boundary.b.id}-${idx}`}
+              from={from}
+              durationInFrames={sfx.durationFrames}
+              name={`transition-sfx-${boundary.boundaryFrame}`}
+            >
+              <Audio src={sfx.url} volume={sfx.volume} />
             </Sequence>
           );
         })}

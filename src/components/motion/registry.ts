@@ -7,6 +7,9 @@ import { SplitScreen, SplitScreenProps, SPLIT_SCREEN_SUPPORTED_ROLES } from "./S
 import { KineticText, KineticTextProps, KINETIC_TEXT_SUPPORTED_ROLES } from "./KineticText";
 import { SwipeDeck, SwipeDeckProps, SWIPE_DECK_SUPPORTED_ROLES } from "./SwipeDeck";
 import { ChatBubbles, ChatBubblesProps, CHAT_BUBBLES_SUPPORTED_ROLES } from "./ChatBubbles";
+import { MapExplainer, MapExplainerProps, MAP_EXPLAINER_SUPPORTED_ROLES } from "./MapExplainer";
+import { AudioWaveform, AudioWaveformProps, AUDIO_WAVEFORM_SUPPORTED_ROLES } from "./AudioWaveform";
+import { KineticCaptions, KineticCaptionsProps, KINETIC_CAPTIONS_SUPPORTED_ROLES } from "./KineticCaptions";
 import { LayoutRole } from "@/lib/types";
 
 /**
@@ -29,6 +32,9 @@ export type MotionComponentProps =
   | KineticTextProps
   | SwipeDeckProps
   | ChatBubblesProps
+  | MapExplainerProps
+  | AudioWaveformProps
+  | KineticCaptionsProps
   | BaseMotionProps;
 
 /**
@@ -44,9 +50,12 @@ export const MOTION_COMPONENTS: Record<
   "TextAnimations/QuoteCard": QuoteCard as React.ComponentType<MotionComponentProps>,
   "TextAnimations/StandardCard": StandardCard as React.ComponentType<MotionComponentProps>,
   "TextAnimations/KineticText": KineticText as React.ComponentType<MotionComponentProps>,
+  "TextAnimations/KineticCaptions": KineticCaptions as React.ComponentType<MotionComponentProps>,
   "ListAnimations/SwipeDeck": SwipeDeck as React.ComponentType<MotionComponentProps>,
   "ListAnimations/ChatBubbles": ChatBubbles as React.ComponentType<MotionComponentProps>,
   "Layouts/SplitScreen": SplitScreen as React.ComponentType<MotionComponentProps>,
+  "GeoAnimations/MapExplainer": MapExplainer as React.ComponentType<MotionComponentProps>,
+  "AudioAnimations/AudioWaveform": AudioWaveform as React.ComponentType<MotionComponentProps>,
 };
 
 /**
@@ -87,6 +96,9 @@ export {
   KineticText,
   SwipeDeck,
   ChatBubbles,
+  MapExplainer,
+  AudioWaveform,
+  KineticCaptions,
   STAT_CARD_SUPPORTED_ROLES,
   TYPEWRITER_SUPPORTED_ROLES,
   QUOTE_CARD_SUPPORTED_ROLES,
@@ -95,6 +107,9 @@ export {
   KINETIC_TEXT_SUPPORTED_ROLES,
   SWIPE_DECK_SUPPORTED_ROLES,
   CHAT_BUBBLES_SUPPORTED_ROLES,
+  MAP_EXPLAINER_SUPPORTED_ROLES,
+  AUDIO_WAVEFORM_SUPPORTED_ROLES,
+  KINETIC_CAPTIONS_SUPPORTED_ROLES,
 };
 
 export type {
@@ -106,4 +121,7 @@ export type {
   KineticTextProps,
   SwipeDeckProps,
   ChatBubblesProps,
+  MapExplainerProps,
+  AudioWaveformProps,
+  KineticCaptionsProps,
 };

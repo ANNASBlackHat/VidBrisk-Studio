@@ -35,3 +35,13 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# renders & temp artifacts
+public/renders/
+public/cache/
+*.mp4
+*.zip
+.screenshots/
+graphify-out/
+src/graphify-out/
+statcard_redesign_preview.png

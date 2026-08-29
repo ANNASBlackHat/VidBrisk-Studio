@@ -79,6 +79,8 @@ function buildMinimalPackageJson(rootDir: string, warnings: string[]): string {
     "tailwind-merge",
     "tailwindcss",
     "lucide-react",
+    "@maptiler/sdk",
+    "@turf/turf",
   ];
   const dependencies: Record<string, string> = {};
   for (const k of keepDeps) {
@@ -239,6 +241,8 @@ export async function POST(request: NextRequest) {
             path.join(rootDir, clean),
             path.join(rootDir, "public", clean.replace(/^\//, "")),
             path.resolve(rootDir, clean),
+            path.resolve(rootDir, "..", "video-generation-pipeline", clean),
+            path.resolve(rootDir, "..", clean),
           ];
           const found = tryPaths.find((p) => fs.existsSync(p) && fs.statSync(p).isFile());
           if (found) {
@@ -269,6 +273,11 @@ export async function POST(request: NextRequest) {
     zip.file(`${bundleDir}/project_state.json`, JSON.stringify(updatedState, null, 2));
     zip.file(`${bundleDir}/package.json`, buildMinimalPackageJson(rootDir, warnings));
     zip.file(`${bundleDir}/Colab_Video_Renderer.ipynb`, buildNotebookJson(jobId));
+
+    const maptilerKey = process.env.REMOTION_MAPTILER_KEY || "";
+    if (maptilerKey) {
+      zip.file(`${bundleDir}/.env.local`, `REMOTION_MAPTILER_KEY=${maptilerKey}\n`);
+    }
 
     for (const a of embeddedAssets) {
       const content = fs.readFileSync(a.original);

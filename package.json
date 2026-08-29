@@ -12,10 +12,13 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@maptiler/sdk": "^4.1.0",
     "@remotion/bundler": "^4.0.513",
+    "@remotion/media-utils": "^4.0.518",
     "@remotion/noise": "^4.0.513",
     "@remotion/player": "^4.0.513",
     "@remotion/renderer": "^4.0.513",
+    "@turf/turf": "^7.4.0",
     "archiver": "^8.0.0",
     "clsx": "^2.1.1",
     "jszip": "^3.10.1",

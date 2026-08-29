@@ -48,7 +48,9 @@ export type BeatType =
   | "typewriter"
   | "swipe_deck"
   | "chat_bubbles"
-  | "split_screen";
+  | "split_screen"
+  | "map_route"
+  | "audio_waveform";
 
 export interface Beat {
   id: string;

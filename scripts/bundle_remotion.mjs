@@ -1,5 +1,6 @@
 import { bundle } from "@remotion/bundler";
 import { enableTailwind } from "@remotion/tailwind";
+import webpack from "webpack";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
@@ -7,6 +8,24 @@ import { fileURLToPath } from "url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..");
 const bundleDir = path.join(rootDir, ".remotion-bundle");
+
+// Load .env.local if present
+const envLocalPath = path.join(rootDir, ".env.local");
+if (fs.existsSync(envLocalPath)) {
+  const content = fs.readFileSync(envLocalPath, "utf-8");
+  for (const line of content.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const eqIdx = trimmed.indexOf("=");
+    if (eqIdx > 0) {
+      const key = trimmed.slice(0, eqIdx).trim();
+      const val = trimmed.slice(eqIdx + 1).trim();
+      if (!process.env[key]) {
+        process.env[key] = val;
+      }
+    }
+  }
+}
 
 export async function bundleRemotion({ force = false, silent = false } = {}) {
   const indexHtml = path.join(bundleDir, "index.html");
@@ -29,7 +48,7 @@ export async function bundleRemotion({ force = false, silent = false } = {}) {
     entryPoint: path.join(rootDir, "src", "remotion", "index.tsx"),
     outDir: bundleDir,
     webpackOverride: (config) => {
-      return enableTailwind({
+      const modifiedConfig = enableTailwind({
         ...config,
         resolve: {
           ...(config.resolve || {}),
@@ -39,6 +58,15 @@ export async function bundleRemotion({ force = false, silent = false } = {}) {
           },
         },
       });
+
+      const maptilerKey = process.env.REMOTION_MAPTILER_KEY || "";
+      modifiedConfig.plugins.push(
+        new webpack.DefinePlugin({
+          "process.env.REMOTION_MAPTILER_KEY": JSON.stringify(maptilerKey),
+        })
+      );
+
+      return modifiedConfig;
     },
   });
 

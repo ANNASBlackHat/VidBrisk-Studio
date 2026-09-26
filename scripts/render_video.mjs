@@ -7,6 +7,27 @@ import crypto from "crypto";
 import { fileURLToPath } from "url";
 import { bundleRemotion } from "./bundle_remotion.mjs";
 
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+
+const browserExecutable =
+  process.env.PUPPETEER_EXECUTABLE_PATH ||
+  (fs.existsSync("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome")
+    ? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+    : undefined);
+
+const chromiumOptions = {
+  args: [
+    "--no-sandbox",
+    "--disable-setuid-sandbox",
+    "--disable-dev-shm-usage",
+    "--disable-gpu-sandbox",
+    "--allow-file-access-from-files",
+    "--disable-web-security",
+    "--autoplay-policy=no-user-gesture-required",
+    "--disable-features=IsolateOrigins,site-per-process",
+  ],
+};
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..");
 
@@ -134,6 +155,10 @@ async function cacheMediaLocally(url) {
       return url;
     }
     const buffer = Buffer.from(await res.arrayBuffer());
+    if (buffer.length < 1024) {
+      console.warn(`  ⚠️ Downloaded media is too small (${buffer.length} bytes), not caching`);
+      return url;
+    }
     fs.writeFileSync(cacheFile, buffer);
     console.log(`  ✓ Cached (${(buffer.length / 1024 / 1024).toFixed(1)} MB)`);
     return toHttpUrl(cacheFile);
@@ -221,6 +246,8 @@ if (timelineFile && fs.existsSync(timelineFile)) {
             props: item.props || {},
             rawContent: item.content,
             style: item.style,
+            zIndex: item.zIndex ?? 10,
+            layoutRole: item.layerRole || item.layout || item.props?.display_mode || "takeover",
           });
         } else {
           textItems.push({
@@ -245,6 +272,32 @@ if (timelineFile && fs.existsSync(timelineFile)) {
           trackEnd: item.trackEnd || (item.trackStart || 0) + dur,
           duration: dur,
           assetId: cachedAudio,
+        });
+      }
+    }
+  }
+
+  // Ensure kinetic captions from resolved_beats for beats that don't already have textItems
+  for (const rb of timeline.metadata?.resolved_beats || []) {
+    const beatId = rb.beat?.id;
+    if (!beatId) continue;
+    const existing = textItems.find((t) => t.id && t.id.includes(beatId));
+    if (existing) {
+      if (!existing.timings && rb.timings && rb.timings.length > 0) {
+        existing.timings = rb.timings;
+      }
+    } else if (rb.beat?.text) {
+      const audio = audioItems.find((a) => a.id && a.id.includes(beatId));
+      if (audio) {
+        textItems.push({
+          id: `caption_${beatId}`,
+          trackId: "text",
+          trackStart: audio.trackStart,
+          trackEnd: audio.trackEnd,
+          duration: audio.duration,
+          content: rb.beat.text,
+          timings: rb.timings || [],
+          style: "kinetic",
         });
       }
     }
@@ -310,6 +363,9 @@ console.log("[Remotion] Selecting VideoExport composition...");
 const composition = await selectComposition({
   serveUrl: bundleLocation,
   id: "VideoExport",
+  browserExecutable,
+  chromiumOptions,
+  timeoutInMilliseconds: 120000,
   inputProps: {
     projectState: state,
   },
@@ -327,6 +383,8 @@ const result = await renderMedia({
   audioCodec: "aac",
   outputLocation: outFile,
   overwrite: true,
+  browserExecutable,
+  chromiumOptions,
   timeoutInMilliseconds: 600000,
   inputProps: {
     projectState: state,
@@ -341,18 +399,6 @@ const result = await renderMedia({
   },
   imageFormat: "jpeg",
   concurrency: 2,
-  chromiumOptions: {
-    args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage",
-      "--disable-gpu-sandbox",
-      "--allow-file-access-from-files",
-      "--disable-web-security",
-      "--autoplay-policy=no-user-gesture-required",
-      "--disable-features=IsolateOrigins,site-per-process",
-    ],
-  },
 });
 
 mediaServer.close();

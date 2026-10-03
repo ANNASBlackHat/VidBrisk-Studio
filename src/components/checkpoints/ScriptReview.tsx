@@ -48,7 +48,7 @@ export function ScriptReview({ job, onApproved }: ScriptReviewProps) {
   const [isRejecting, setIsRejecting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const handleUpdateBeat = (index: number, field: keyof Beat, value: string) => {
+  const handleUpdateBeat = (index: number, field: keyof Beat, value: unknown) => {
     const updated = [...beats];
     updated[index] = { ...updated[index], [field]: value };
     setBeats(updated);
@@ -63,6 +63,7 @@ export function ScriptReview({ job, onApproved }: ScriptReviewProps) {
         text: "",
         visual_intent: "",
         beat_type: "narrative",
+        pause_after: 0,
       },
     ]);
   };
@@ -482,6 +483,52 @@ export function ScriptReview({ job, onApproved }: ScriptReviewProps) {
                   placeholder="e.g. Saturn V rocket lifting off with massive fire plume"
                   className="w-full p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-xs text-slate-300 placeholder-slate-600 focus:outline-none focus:border-amber-500/80 font-mono"
                 />
+              </div>
+
+              {/* Breathing Room / Pause After Beat */}
+              <div className="flex items-center justify-between pt-2 border-t border-slate-800/60 flex-wrap gap-2">
+                <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
+                  <span className="text-amber-400 font-mono">⏸️</span>
+                  <span className="font-medium text-slate-300">Breathing Room / Pause After:</span>
+                  <span className="text-[10px] text-slate-500 hidden sm:inline">
+                    (silence on narration, visuals & BGM continue)
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {[0, 1.0, 1.5, 2.0].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => handleUpdateBeat(idx, "pause_after", preset)}
+                      className={`px-2 py-0.5 rounded text-[10px] font-mono font-medium transition-colors ${
+                        (beat.pause_after || 0) === preset
+                          ? "bg-amber-400/20 text-amber-300 border border-amber-500/40"
+                          : "bg-slate-950 text-slate-400 border border-slate-800 hover:border-slate-700"
+                      }`}
+                    >
+                      {preset === 0 ? "None" : `${preset}s`}
+                    </button>
+                  ))}
+                  <div className="flex items-center gap-1 ml-1">
+                    <input
+                      type="number"
+                      step="0.5"
+                      min="0"
+                      max="10"
+                      value={beat.pause_after ?? 0}
+                      onChange={(e) =>
+                        handleUpdateBeat(
+                          idx,
+                          "pause_after",
+                          Math.max(0, parseFloat(e.target.value) || 0)
+                        )
+                      }
+                      className="w-14 px-1.5 py-0.5 rounded bg-slate-950 border border-slate-800 text-[11px] text-slate-200 text-center font-mono focus:outline-none focus:border-amber-500"
+                    />
+                    <span className="text-[10px] text-slate-500 font-mono">sec</span>
+                  </div>
+                </div>
               </div>
             </div>
           );

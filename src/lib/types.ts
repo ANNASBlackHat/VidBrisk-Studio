@@ -58,6 +58,7 @@ export interface Beat {
   visual_intent: string;
   beat_type: BeatType;
   motion_props?: Record<string, unknown> | null;
+  pause_after?: number;
 }
 
 export interface WordTiming {

@@ -1,0 +1,1018 @@
+{
+  "jobId": "dead_reckoning_ep1",
+  "fps": 30,
+  "total_duration": 1175.0,
+  "width": 1920,
+  "height": 1080,
+  "orientation": "horizontal",
+  "tracks": [
+    {
+      "id": "video",
+      "label": "B-Roll Footage Track",
+      "type": "video",
+      "items": [
+        {
+          "id": "broll_cue_04",
+          "trackStart": 36.0,
+          "trackEnd": 45.0,
+          "duration": 9.0,
+          "assetType": "video",
+          "storagePath": "https://cdn.pixabay.com/video/2016/01/03/1823-150669776_medium.mp4",
+          "storageUrl": "https://cdn.pixabay.com/video/2016/01/03/1823-150669776_medium.mp4",
+          "sourceIn": 0.0,
+          "sourceOut": 9.0,
+          "score": 0.3767,
+          "searchQuery": "Held rating-key card, five lines, 6s max",
+          "description": "Held rating-key card, five lines, 6s max"
+        },
+        {
+          "id": "broll_cue_08",
+          "trackStart": 110.0,
+          "trackEnd": 120.0,
+          "duration": 10.0,
+          "assetType": "video",
+          "storagePath": "https://upload.wikimedia.org/wikipedia/commons/6/66/A_Ship_Crossing_the_Icy_Laptev_Sea_%28CIRA_2023-11-16_-_nolabels%29.webm",
+          "storageUrl": "https://upload.wikimedia.org/wikipedia/commons/6/66/A_Ship_Crossing_the_Icy_Laptev_Sea_%28CIRA_2023-11-16_-_nolabels%29.webm",
+          "sourceIn": 0.0,
+          "sourceOut": 10.0,
+          "score": 0.521,
+          "searchQuery": "Norway coast, period map",
+          "description": "Norway coast, period map"
+        },
+        {
+          "id": "broll_cue_11",
+          "trackStart": 152.0,
+          "trackEnd": 170.0,
+          "duration": 18.0,
+          "assetType": "video",
+          "storagePath": "https://videos.pexels.com/video-files/31804249/13550088_640_360_60fps.mp4",
+          "storageUrl": "https://videos.pexels.com/video-files/31804249/13550088_640_360_60fps.mp4",
+          "sourceIn": 0.0,
+          "sourceOut": 18.0,
+          "score": 0.4185,
+          "searchQuery": "Museum drawer: squid beaks, sucker rows, glass arm sections",
+          "description": "Museum drawer: squid beaks, sucker rows, glass arm sections"
+        },
+        {
+          "id": "broll_cue_12",
+          "trackStart": 170.0,
+          "trackEnd": 185.0,
+          "duration": 15.0,
+          "assetType": "video",
+          "storagePath": "https://videos.pexels.com/video-files/31804249/13550088_640_360_60fps.mp4",
+          "storageUrl": "https://videos.pexels.com/video-files/31804249/13550088_640_360_60fps.mp4",
+          "sourceIn": 0.0,
+          "sourceOut": 15.0,
+          "score": 0.3449,
+          "searchQuery": "Steenstrup's specimens, 1853 Denmark beak / 1855 Bahamas",
+          "description": "Steenstrup's specimens, 1853 Denmark beak / 1855 Bahamas"
+        },
+        {
+          "id": "broll_cue_14",
+          "trackStart": 198.0,
+          "trackEnd": 214.0,
+          "duration": 16.0,
+          "assetType": "video",
+          "storagePath": "https://cdn.pixabay.com/video/2016/01/03/1823-150669776_medium.mp4",
+          "storageUrl": "https://cdn.pixabay.com/video/2016/01/03/1823-150669776_medium.mp4",
+          "sourceIn": 0.0,
+          "sourceOut": 16.0,
+          "score": 0.4309,
+          "searchQuery": "Chapter card",
+          "description": "Chapter card"
+        },
+        {
+          "id": "broll_cue_15",
+          "trackStart": 214.0,
+          "trackEnd": 230.0,
+          "duration": 16.0,
+          "assetType": "video",
+          "storagePath": "https://upload.wikimedia.org/wikipedia/commons/6/66/A_Ship_Crossing_the_Icy_Laptev_Sea_%28CIRA_2023-11-16_-_nolabels%29.webm",
+          "storageUrl": "https://upload.wikimedia.org/wikipedia/commons/6/66/A_Ship_Crossing_the_Icy_Laptev_Sea_%28CIRA_2023-11-16_-_nolabels%29.webm",
+          "sourceIn": 0.0,
+          "sourceOut": 16.0,
+          "score": 0.4397,
+          "searchQuery": "Tenerife, map zoom",
+          "description": "Tenerife, map zoom"
+        },
+        {
+          "id": "broll_cue_17",
+          "trackStart": 245.0,
+          "trackEnd": 260.0,
+          "duration": 15.0,
+          "assetType": "video",
+          "storagePath": "https://videos.pexels.com/video-files/28488522/12396726_360_640_60fps.mp4",
+          "storageUrl": "https://videos.pexels.com/video-files/28488522/12396726_360_640_60fps.mp4",
+          "sourceIn": 0.0,
+          "sourceOut": 15.0,
+          "score": 0.4173,
+          "searchQuery": "Alecton: sidewheel corvette, 570 tons, 66 crew, two guns",
+          "description": "Alecton: sidewheel corvette, 570 tons, 66 crew, two guns"
+        },
+        {
+          "id": "broll_cue_18",
+          "trackStart": 260.0,
+          "trackEnd": 275.0,
+          "duration": 15.0,
+          "assetType": "video",
+          "storagePath": "https://cdn.pixabay.com/video/2015/08/26/590-137367680_medium.mp4",
+          "storageUrl": "https://cdn.pixabay.com/video/2015/08/26/590-137367680_medium.mp4",
+          "sourceIn": 0.0,
+          "sourceOut": 15.0,
+          "score": 0.5291,
+          "searchQuery": "Rope and noose, modern macro",
+          "description": "Rope and noose, modern macro"
+        },
+        {
+          "id": "broll_cue_20",
+          "trackStart": 290.0,
+          "trackEnd": 310.0,
+          "duration": 20.0,
+          "assetType": "video",
+          "storagePath": "https://ik.imagekit.io/annassocial/footage_engine/raw/chunks_e253ff2c_1ca30ca7.mp4",
+          "storageUrl": "https://ik.imagekit.io/annassocial/footage_engine/raw/chunks_e253ff2c_1ca30ca7.mp4",
+          "sourceIn": 1085.0,
+          "sourceOut": 1105.0,
+          "score": 0.5455,
+          "searchQuery": "Black water, rope with nothing on it",
+          "description": "Black water, rope with nothing on it"
+        },
+        {
+          "id": "broll_cue_21",
+          "trackStart": 310.0,
+          "trackEnd": 320.0,
+          "duration": 10.0,
+          "assetType": "video",
+          "storagePath": "https://cdn.pixabay.com/video/2016/01/03/1823-150669776_medium.mp4",
+          "storageUrl": "https://cdn.pixabay.com/video/2016/01/03/1823-150669776_medium.mp4",
+          "sourceIn": 0.0,
+          "sourceOut": 10.0,
+          "score": 0.4158,
+          "searchQuery": "Full-frame card, 4s",
+          "description": "Full-frame card, 4s"
+        },
+        {
+          "id": "broll_cue_22",
+          "trackStart": 320.0,
+          "trackEnd": 329.0,
+          "duration": 9.0,
+          "assetType": "video",
+          "storagePath": "https://cdn.pixabay.com/video/2021/11/13/96614-656478939_medium.mp4",
+          "storageUrl": "https://cdn.pixabay.com/video/2021/11/13/96614-656478939_medium.mp4",
+          "sourceIn": 0.0,
+          "sourceOut": 9.0,
+          "score": 0.5058,
+          "searchQuery": "Slow archival drift behind text",
+          "description": "Slow archival drift behind text"
+        },
+        {
+          "id": "broll_cue_23",
+          "trackStart": 329.0,
+          "trackEnd": 342.0,
+          "duration": 13.0,
+          "assetType": "video",
+          "storagePath": "https://cdn.pixabay.com/video/2016/01/03/1823-150669776_medium.mp4",
+          "storageUrl": "https://cdn.pixabay.com/video/2016/01/03/1823-150669776_medium.mp4",
+          "sourceIn": 0.0,
+          "sourceOut": 13.0,
+          "score": 0.4309,
+          "searchQuery": "Chapter card",
+          "description": "Chapter card"
+        },
+        {
+          "id": "broll_cue_24",
+          "trackStart": 342.0,
+          "trackEnd": 360.0,
+          "duration": 18.0,
+          "assetType": "video",
+          "storagePath": "https://upload.wikimedia.org/wikipedia/commons/6/66/A_Ship_Crossing_the_Icy_Laptev_Sea_%28CIRA_2023-11-16_-_nolabels%29.webm",
+          "storageUrl": "https://upload.wikimedia.org/wikipedia/commons/6/66/A_Ship_Crossing_the_Icy_Laptev_Sea_%28CIRA_2023-11-16_-_nolabels%29.webm",
+          "sourceIn": 0.0,
+          "sourceOut": 18.0,
+          "score": 0.4674,
+          "searchQuery": "Conception Bay / Portugal Cove, map to satellite",
+          "description": "Conception Bay / Portugal Cove, map to satellite"
+        },
+        {
+          "id": "broll_cue_25",
+          "trackStart": 360.0,
+          "trackEnd": 380.0,
+          "duration": 20.0,
+          "assetType": "video",
+          "storagePath": "https://videos.pexels.com/video-files/29104582/12574534_640_360_50fps.mp4",
+          "storageUrl": "https://videos.pexels.com/video-files/29104582/12574534_640_360_50fps.mp4",
+          "sourceIn": 0.0,
+          "sourceOut": 20.0,
+          "score": 0.5004,
+          "searchQuery": "Modern Portugal Cove shoreline (dory scale reference)",
+          "description": "Modern Portugal Cove shoreline (dory scale reference)"
+        },
+        {
+          "id": "broll_cue_32",
+          "trackStart": 490.0,
+          "trackEnd": 515.0,
+          "duration": 25.0,
+          "assetType": "video",
+          "storagePath": "https://videos.pexels.com/video-files/33612765/14287187_640_360_60fps.mp4",
+          "storageUrl": "https://videos.pexels.com/video-files/33612765/14287187_640_360_60fps.mp4",
+          "sourceIn": 0.0,
+          "sourceOut": 25.0,
+          "score": 0.3792,
+          "searchQuery": "Thimble Tickle / Notre Dame Bay shoreline, 1878",
+          "description": "Thimble Tickle / Notre Dame Bay shoreline, 1878"
+        },
+        {
+          "id": "broll_cue_34",
+          "trackStart": 530.0,
+          "trackEnd": 546.0,
+          "duration": 16.0,
+          "assetType": "video",
+          "storagePath": "https://videos.pexels.com/video-files/31202645/13328475_682_360_30fps.mp4",
+          "storageUrl": "https://videos.pexels.com/video-files/31202645/13328475_682_360_30fps.mp4",
+          "sourceIn": 25.0,
+          "sourceOut": 41.0,
+          "score": 0.4945,
+          "searchQuery": "Black water / rope tied to a tree, or empty beach",
+          "description": "Black water / rope tied to a tree, or empty beach"
+        },
+        {
+          "id": "broll_cue_35",
+          "trackStart": 546.0,
+          "trackEnd": 560.0,
+          "duration": 14.0,
+          "assetType": "video",
+          "storagePath": "https://cdn.pixabay.com/video/2016/01/03/1823-150669776_medium.mp4",
+          "storageUrl": "https://cdn.pixabay.com/video/2016/01/03/1823-150669776_medium.mp4",
+          "sourceIn": 0.0,
+          "sourceOut": 14.0,
+          "score": 0.4309,
+          "searchQuery": "Chapter card",
+          "description": "Chapter card"
+        },
+        {
+          "id": "broll_cue_36",
+          "trackStart": 560.0,
+          "trackEnd": 590.0,
+          "duration": 30.0,
+          "assetType": "video",
+          "storagePath": "https://videos.pexels.com/video-files/29636318/12751626_640_360_25fps.mp4",
+          "storageUrl": "https://videos.pexels.com/video-files/29636318/12751626_640_360_25fps.mp4",
+          "sourceIn": 5.0,
+          "sourceOut": 35.0,
+          "score": 0.4564,
+          "searchQuery": "Ceylon south coast, Galle harbour, animated route line, Great Basses light",
+          "description": "Ceylon south coast, Galle harbour, animated route line, Great Basses light"
+        },
+        {
+          "id": "broll_cue_37",
+          "trackStart": 590.0,
+          "trackEnd": 605.0,
+          "duration": 15.0,
+          "assetType": "video",
+          "storagePath": "https://videos.pexels.com/video-files/35976554/15254713_640_360_30fps.mp4",
+          "storageUrl": "https://videos.pexels.com/video-files/35976554/15254713_640_360_30fps.mp4",
+          "sourceIn": 0.0,
+          "sourceOut": 15.0,
+          "score": 0.6289,
+          "searchQuery": "Anchor chain, 1870s stock footage or own",
+          "description": "Anchor chain, 1870s stock footage or own"
+        },
+        {
+          "id": "broll_cue_38",
+          "trackStart": 605.0,
+          "trackEnd": 615.0,
+          "duration": 10.0,
+          "assetType": "video",
+          "storagePath": "https://cdn.pixabay.com/video/2015/10/29/1215-144094436_medium.mp4",
+          "storageUrl": "https://cdn.pixabay.com/video/2015/10/29/1215-144094436_medium.mp4",
+          "sourceIn": 0.0,
+          "sourceOut": 10.0,
+          "score": 0.4902,
+          "searchQuery": "Gunshot, muzzle flash, single",
+          "description": "Gunshot, muzzle flash, single"
+        },
+        {
+          "id": "broll_cue_39",
+          "trackStart": 615.0,
+          "trackEnd": 640.0,
+          "duration": 25.0,
+          "assetType": "video",
+          "storagePath": "https://videos.pexels.com/video-files/28488522/12396726_360_640_60fps.mp4",
+          "storageUrl": "https://videos.pexels.com/video-files/28488522/12396726_360_640_60fps.mp4",
+          "sourceIn": 0.0,
+          "sourceOut": 25.0,
+          "score": 0.5188,
+          "searchQuery": "Abstract encounter animation \u2014 mass, arms, hull. No anatomy, no monster rendering.",
+          "description": "Abstract encounter animation** \u2014 mass, arms, hull. **No anatomy, no monster rendering."
+        },
+        {
+          "id": "broll_cue_40",
+          "trackStart": 640.0,
+          "trackEnd": 660.0,
+          "duration": 20.0,
+          "assetType": "video",
+          "storagePath": "https://videos.pexels.com/video-files/38045835/16148930_640_360_24fps.mp4",
+          "storageUrl": "https://videos.pexels.com/video-files/38045835/16148930_640_360_24fps.mp4",
+          "sourceIn": 0.0,
+          "sourceOut": 20.0,
+          "score": 0.6576,
+          "searchQuery": "Passenger's glass view \u2014 binocular vignette over empty sea",
+          "description": "Passenger's glass view \u2014 binocular vignette over empty sea"
+        },
+        {
+          "id": "broll_cue_41",
+          "trackStart": 660.0,
+          "trackEnd": 680.0,
+          "duration": 20.0,
+          "assetType": "video",
+          "storagePath": "https://videos.pexels.com/video-files/7543407/7543407-hd_1280_720_24fps.mp4",
+          "storageUrl": "https://videos.pexels.com/video-files/7543407/7543407-hd_1280_720_24fps.mp4",
+          "sourceIn": 0.0,
+          "sourceOut": 20.0,
+          "score": 0.4252,
+          "searchQuery": "Reversed ensign, upside down",
+          "description": "Reversed ensign, upside down"
+        },
+        {
+          "id": "broll_cue_42",
+          "trackStart": 700.0,
+          "trackEnd": 715.0,
+          "duration": 15.0,
+          "assetType": "video",
+          "storagePath": "https://cdn.pixabay.com/video/2016/09/21/5393-183629118_medium.mp4",
+          "storageUrl": "https://cdn.pixabay.com/video/2016/09/21/5393-183629118_medium.mp4",
+          "sourceIn": 0.0,
+          "sourceOut": 15.0,
+          "score": 0.4619,
+          "searchQuery": "The 31 July 1874 reprint masthead, highlighted",
+          "description": "The 31 July 1874 reprint masthead, highlighted"
+        },
+        {
+          "id": "broll_cue_43",
+          "trackStart": 715.0,
+          "trackEnd": 730.0,
+          "duration": 15.0,
+          "assetType": "video",
+          "storagePath": "https://videos.pexels.com/video-files/6041715/6041715-hd_1280_720_24fps.mp4",
+          "storageUrl": "https://videos.pexels.com/video-files/6041715/6041715-hd_1280_720_24fps.mp4",
+          "sourceIn": 0.0,
+          "sourceOut": 15.0,
+          "score": 0.6143,
+          "searchQuery": "Fade to held black",
+          "description": "Fade to held black"
+        },
+        {
+          "id": "broll_cue_46",
+          "trackStart": 780.0,
+          "trackEnd": 810.0,
+          "duration": 30.0,
+          "assetType": "video",
+          "storagePath": "https://cdn.pixabay.com/video/2016/01/03/1823-150669776_medium.mp4",
+          "storageUrl": "https://cdn.pixabay.com/video/2016/01/03/1823-150669776_medium.mp4",
+          "sourceIn": 0.0,
+          "sourceOut": 30.0,
+          "score": 0.5508,
+          "searchQuery": "Empty shelf / archive box graphic",
+          "description": "Empty shelf / archive box graphic"
+        },
+        {
+          "id": "broll_cue_47",
+          "trackStart": 810.0,
+          "trackEnd": 840.0,
+          "duration": 30.0,
+          "assetType": "video",
+          "storagePath": "https://cdn.pixabay.com/video/2021/11/13/96614-656478939_medium.mp4",
+          "storageUrl": "https://cdn.pixabay.com/video/2021/11/13/96614-656478939_medium.mp4",
+          "sourceIn": 0.0,
+          "sourceOut": 30.0,
+          "score": 0.4417,
+          "searchQuery": "Two-column comparison: Peril/Flood/octopus/Atlantic vs Pearl/Floyd/squid/Bay of Bengal",
+          "description": "Two-column comparison: *Peril*/Flood/octopus/Atlantic vs *Pearl*/Floyd/squid/Bay of Bengal"
+        },
+        {
+          "id": "broll_cue_48",
+          "trackStart": 840.0,
+          "trackEnd": 860.0,
+          "duration": 20.0,
+          "assetType": "video",
+          "storagePath": "https://upload.wikimedia.org/wikipedia/commons/6/66/A_Ship_Crossing_the_Icy_Laptev_Sea_%28CIRA_2023-11-16_-_nolabels%29.webm",
+          "storageUrl": "https://upload.wikimedia.org/wikipedia/commons/6/66/A_Ship_Crossing_the_Icy_Laptev_Sea_%28CIRA_2023-11-16_-_nolabels%29.webm",
+          "sourceIn": 0.0,
+          "sourceOut": 20.0,
+          "score": 0.4416,
+          "searchQuery": "Snelling/Snow-era Atlantic map, position marked",
+          "description": "Snelling/Snow-era Atlantic map, position marked"
+        },
+        {
+          "id": "broll_cue_53",
+          "trackStart": 955.0,
+          "trackEnd": 980.0,
+          "duration": 25.0,
+          "assetType": "video",
+          "storagePath": "https://videos.pexels.com/video-files/4147690/4147690-hd_1280_720_30fps.mp4",
+          "storageUrl": "https://videos.pexels.com/video-files/4147690/4147690-hd_1280_720_30fps.mp4",
+          "sourceIn": 40.0,
+          "sourceOut": 65.0,
+          "score": 0.5536,
+          "searchQuery": "Lane calm, wide, empty \u2014 the only aesthetic shot in the act",
+          "description": "Lane calm, wide, empty** \u2014 the only aesthetic shot in the act"
+        },
+        {
+          "id": "broll_cue_54",
+          "trackStart": 980.0,
+          "trackEnd": 1010.0,
+          "duration": 30.0,
+          "assetType": "video",
+          "storagePath": "https://cdn.pixabay.com/video/2019/01/19/20833-312432050_medium.mp4",
+          "storageUrl": "https://cdn.pixabay.com/video/2019/01/19/20833-312432050_medium.mp4",
+          "sourceIn": 0.0,
+          "sourceOut": 30.0,
+          "score": 0.4983,
+          "searchQuery": "Blank checklist, four lines appearing one at a time",
+          "description": "Blank checklist, four lines appearing one at a time"
+        },
+        {
+          "id": "broll_cue_55",
+          "trackStart": 1014.0,
+          "trackEnd": 1040.0,
+          "duration": 26.0,
+          "assetType": "video",
+          "storagePath": "https://videos.pexels.com/video-files/10377082/10377082-hd_1280_720_30fps.mp4",
+          "storageUrl": "https://videos.pexels.com/video-files/10377082/10377082-hd_1280_720_30fps.mp4",
+          "sourceIn": 0.0,
+          "sourceOut": 26.0,
+          "score": 0.6249,
+          "searchQuery": "Sperm whale, deep water",
+          "description": "Sperm whale, deep water"
+        },
+        {
+          "id": "broll_cue_57",
+          "trackStart": 1065.0,
+          "trackEnd": 1085.0,
+          "duration": 20.0,
+          "assetType": "video",
+          "storagePath": "https://videos.pexels.com/video-files/10377082/10377082-hd_1280_720_30fps.mp4",
+          "storageUrl": "https://videos.pexels.com/video-files/10377082/10377082-hd_1280_720_30fps.mp4",
+          "sourceIn": 0.0,
+          "sourceOut": 20.0,
+          "score": 0.5339,
+          "searchQuery": "2004 stills — camera rig at 900 m, squid on the line",
+          "description": "2004 stills** — camera rig at 900 m, squid on the line"
+        },
+        {
+          "id": "broll_cue_59",
+          "trackStart": 1100.0,
+          "trackEnd": 1116.0,
+          "duration": 16.0,
+          "assetType": "video",
+          "storagePath": "https://videos.pexels.com/video-files/34331578/14544149_640_360_60fps.mp4",
+          "storageUrl": "https://videos.pexels.com/video-files/34331578/14544149_640_360_60fps.mp4",
+          "sourceIn": 0.0,
+          "sourceOut": 16.0,
+          "score": 0.5543,
+          "searchQuery": "2012 submersible footage — or stills, or the 2004 stills if unlicensed",
+          "description": "2012 submersible footage** — or stills, or the 2004 stills if unlicensed"
+        },
+        {
+          "id": "broll_cue_61",
+          "trackStart": 1130.0,
+          "trackEnd": 1145.0,
+          "duration": 15.0,
+          "assetType": "video",
+          "storagePath": "https://videos.pexels.com/video-files/30706899/13138096_640_360_30fps.mp4",
+          "storageUrl": "https://videos.pexels.com/video-files/30706899/13138096_640_360_30fps.mp4",
+          "sourceIn": 0.0,
+          "sourceOut": 15.0,
+          "score": 0.4185,
+          "searchQuery": "Slow drift over the source list",
+          "description": "Slow drift over the source list"
+        },
+        {
+          "id": "broll_cue_62",
+          "trackStart": 1145.0,
+          "trackEnd": 1160.0,
+          "duration": 15.0,
+          "assetType": "video",
+          "storagePath": "https://videos.pexels.com/video-files/6041715/6041715-hd_1280_720_24fps.mp4",
+          "storageUrl": "https://videos.pexels.com/video-files/6041715/6041715-hd_1280_720_24fps.mp4",
+          "sourceIn": 0.0,
+          "sourceOut": 15.0,
+          "score": 0.4785,
+          "searchQuery": "Held still, single low tone",
+          "description": "Held still, single low tone"
+        },
+        {
+          "id": "broll_cue_63",
+          "trackStart": 1160.0,
+          "trackEnd": 1175.0,
+          "duration": 15.0,
+          "assetType": "video",
+          "storagePath": "https://cdn.pixabay.com/video/2016/01/03/1823-150669776_medium.mp4",
+          "storageUrl": "https://cdn.pixabay.com/video/2016/01/03/1823-150669776_medium.mp4",
+          "sourceIn": 0.0,
+          "sourceOut": 15.0,
+          "score": 0.4581,
+          "searchQuery": "End screen: squid footage, subscribe element, next-case panel",
+          "description": "End screen**: squid footage, subscribe element, next-case panel"
+        }
+      ]
+    },
+    {
+      "id": "text",
+      "label": "Documentary Motion & Archival Track",
+      "type": "text",
+      "items": [
+        {
+          "id": "doc_cue_01",
+          "trackStart": 0.0,
+          "trackEnd": 8.0,
+          "duration": 8.0,
+          "componentId": "Archival/DocumentViewer",
+          "props": {
+            "title": "ARCHIVAL DOCUMENT",
+            "highlightText": "Black, then slow swell over a single Lloyd's Regis",
+            "durationInFrames": 240
+          },
+          "content": "Black, then slow swell over a single Lloyd's Register page",
+          "layoutRole": "takeover"
+        },
+        {
+          "id": "doc_cue_02",
+          "trackStart": 8.0,
+          "trackEnd": 20.0,
+          "duration": 12.0,
+          "componentId": "Archival/DocumentViewer",
+          "props": {
+            "title": "OWN FOOTAGE / ARCHIVE SCAN",
+            "highlightText": "Pages turning, no titles \u2014 must read as *documents",
+            "durationInFrames": 360
+          },
+          "content": "Pages turning, no titles \u2014 must read as *documents*, not decoration",
+          "layoutRole": "takeover"
+        },
+        {
+          "id": "motion_cue_03",
+          "trackStart": 28.0,
+          "trackEnd": 36.0,
+          "duration": 8.0,
+          "componentId": "Evidence/RatingCard",
+          "props": {
+            "title": "DEAD RECKONING EVIDENCE RATING",
+            "rating": "UNSUPPORTED",
+            "claim": "Rating key card** \u2014 five tiers, slam in"
+          },
+          "content": "Rating key card** \u2014 five tiers, slam in",
+          "layoutRole": "takeover"
+        },
+        {
+          "id": "motion_cue_05",
+          "trackStart": 60.0,
+          "trackEnd": 80.0,
+          "duration": 20.0,
+          "componentId": "Evidence/SourcingCard",
+          "props": {
+            "tier": 1,
+            "source": "Build"
+          },
+          "content": "Four-tier sourcing card",
+          "layoutRole": "takeover"
+        },
+        {
+          "id": "doc_cue_06",
+          "trackStart": 80.0,
+          "trackEnd": 95.0,
+          "duration": 15.0,
+          "componentId": "Archival/DocumentViewer",
+          "props": {
+            "title": "*HOMEWARD MAIL* SCAN",
+            "highlightText": "Slow drift across the *Pearl* account text, one ph",
+            "durationInFrames": 450
+          },
+          "content": "Slow drift across the *Pearl* account text, one phrase highlighted",
+          "layoutRole": "takeover"
+        },
+        {
+          "id": "doc_cue_07",
+          "trackStart": 95.0,
+          "trackEnd": 110.0,
+          "duration": 15.0,
+          "componentId": "Archival/DocumentViewer",
+          "props": {
+            "title": "ARCHIVAL DOCUMENT",
+            "highlightText": "Pontoppidan kraken engraving, slow push",
+            "durationInFrames": 450
+          },
+          "content": "Pontoppidan kraken engraving, slow push",
+          "layoutRole": "takeover"
+        },
+        {
+          "id": "doc_cue_09",
+          "trackStart": 125.0,
+          "trackEnd": 140.0,
+          "duration": 15.0,
+          "componentId": "Archival/DocumentViewer",
+          "props": {
+            "title": "ARCHIVAL DOCUMENT",
+            "highlightText": "de Montfort's colossal octopus, Voysard engraving,",
+            "durationInFrames": 450
+          },
+          "content": "de Montfort's colossal octopus, Voysard engraving, 1801** \u2014 the mislabelling beat",
+          "layoutRole": "takeover"
+        },
+        {
+          "id": "doc_cue_10",
+          "trackStart": 140.0,
+          "trackEnd": 152.0,
+          "duration": 12.0,
+          "componentId": "Archival/DocumentViewer",
+          "props": {
+            "title": "ANY 19TH-C. ENGLISH EDITION",
+            "highlightText": "The same plate as recaptioned in the English editi",
+            "durationInFrames": 360
+          },
+          "content": "The same plate as recaptioned in the English edition* \u2014 side by side",
+          "layoutRole": "takeover"
+        },
+        {
+          "id": "motion_cue_13",
+          "trackStart": 185.0,
+          "trackEnd": 198.0,
+          "duration": 13.0,
+          "componentId": "DataAnimations/MeasurementCompare",
+          "props": {
+            "title": "SPECIMEN MEASUREMENT COLLAPSE",
+            "steps": [
+              {
+                "label": "Documented",
+                "value": "19 ft"
+              },
+              {
+                "label": "Preserved",
+                "value": "17 ft"
+              },
+              {
+                "label": "Desiccated",
+                "value": "13 ft 1 in"
+              }
+            ]
+          },
+          "content": "Taxonomy card: *Architeuthis dux* \u2192 *monachus* \u2192 *bouyeri* \u2192 *harveyi* \u2192 *longimanus* \u2192 today",
+          "layoutRole": "takeover"
+        },
+        {
+          "id": "doc_cue_16",
+          "trackStart": 230.0,
+          "trackEnd": 245.0,
+          "duration": 15.0,
+          "componentId": "Archival/DocumentViewer",
+          "props": {
+            "title": "BIBLIOTH\u00c8QUE NATIONALE / RIJKSMUSEUM",
+            "highlightText": "Lackerbauer 1865 engraving after Rodolphe's 1861 w",
+            "durationInFrames": 450
+          },
+          "content": "Lackerbauer 1865 engraving after Rodolphe's 1861 watercolour** \u2014 the corvette and the squid",
+          "layoutRole": "takeover"
+        },
+        {
+          "id": "motion_cue_19",
+          "trackStart": 275.0,
+          "trackEnd": 290.0,
+          "duration": 15.0,
+          "componentId": "DataAnimations/MeasurementCompare",
+          "props": {
+            "title": "SPECIMEN MEASUREMENT COLLAPSE",
+            "steps": [
+              {
+                "label": "Documented",
+                "value": "19 ft"
+              },
+              {
+                "label": "Preserved",
+                "value": "17 ft"
+              },
+              {
+                "label": "Desiccated",
+                "value": "13 ft 1 in"
+              }
+            ]
+          },
+          "content": "Three-way size graphic** \u2014 15\u201318 ft / 36\u201340 ft / 20 kg vs 14 kg",
+          "layoutRole": "takeover"
+        },
+        {
+          "id": "motion_cue_26",
+          "trackStart": 380.0,
+          "trackEnd": 400.0,
+          "duration": 20.0,
+          "componentId": "DataAnimations/MeasurementCompare",
+          "props": {
+            "title": "SPECIMEN MEASUREMENT COLLAPSE",
+            "steps": [
+              {
+                "label": "Documented",
+                "value": "19 ft"
+              },
+              {
+                "label": "Preserved",
+                "value": "17 ft"
+              },
+              {
+                "label": "Desiccated",
+                "value": "13 ft 1 in"
+              }
+            ]
+          },
+          "content": "19 ft \u2192 17 ft \u2192 13 ft 1 in** \u2014 the shrinkage graphic",
+          "layoutRole": "takeover"
+        },
+        {
+          "id": "doc_cue_27",
+          "trackStart": 400.0,
+          "trackEnd": 420.0,
+          "duration": 20.0,
+          "componentId": "Archival/DocumentViewer",
+          "props": {
+            "title": "OWN / MUSEUM",
+            "highlightText": "Sucker row macro, modern specimen, matched to Verr",
+            "durationInFrames": 600
+          },
+          "content": "Sucker row macro, modern specimen, matched to Verrill's plate",
+          "layoutRole": "takeover"
+        },
+        {
+          "id": "doc_cue_28",
+          "trackStart": 420.0,
+          "trackEnd": 440.0,
+          "duration": 20.0,
+          "componentId": "Archival/DocumentViewer",
+          "props": {
+            "title": "VERRILL 1882 PLATE; SMITHSONIAN NMNH",
+            "highlightText": "Harvey bathtub photograph**, slow scale reveal",
+            "durationInFrames": 600
+          },
+          "content": "Harvey bathtub photograph**, slow scale reveal",
+          "layoutRole": "takeover"
+        },
+        {
+          "id": "doc_cue_29",
+          "trackStart": 440.0,
+          "trackEnd": 455.0,
+          "duration": 15.0,
+          "componentId": "Archival/DocumentViewer",
+          "props": {
+            "title": "BUILD FROM VERRILL PLATE II",
+            "highlightText": "Reconstruction overlay: Verrill's redrawn soft par",
+            "durationInFrames": 450
+          },
+          "content": "Reconstruction overlay: Verrill's redrawn soft parts vs the photograph",
+          "layoutRole": "takeover"
+        },
+        {
+          "id": "motion_cue_30",
+          "trackStart": 455.0,
+          "trackEnd": 475.0,
+          "duration": 20.0,
+          "componentId": "DataAnimations/MeasurementCompare",
+          "props": {
+            "title": "SPECIMEN MEASUREMENT COLLAPSE",
+            "steps": [
+              {
+                "label": "Documented",
+                "value": "19 ft"
+              },
+              {
+                "label": "Preserved",
+                "value": "17 ft"
+              },
+              {
+                "label": "Desiccated",
+                "value": "13 ft 1 in"
+              }
+            ]
+          },
+          "content": "Scale graphic \u2014 mantle 7 ft, circumference 5\u20136 ft, tentacles 24 ft",
+          "layoutRole": "takeover"
+        },
+        {
+          "id": "doc_cue_31",
+          "trackStart": 475.0,
+          "trackEnd": 490.0,
+          "duration": 15.0,
+          "componentId": "Archival/DocumentViewer",
+          "props": {
+            "title": "ARCHIVE",
+            "highlightText": "Harvey's barn, period photograph, or the coast at ",
+            "durationInFrames": 450
+          },
+          "content": "Harvey's barn, period photograph, or the coast at Logy Bay",
+          "layoutRole": "takeover"
+        },
+        {
+          "id": "motion_cue_33",
+          "trackStart": 515.0,
+          "trackEnd": 530.0,
+          "duration": 15.0,
+          "componentId": "DataAnimations/MeasurementCompare",
+          "props": {
+            "title": "SPECIMEN MEASUREMENT COLLAPSE",
+            "steps": [
+              {
+                "label": "Documented",
+                "value": "19 ft"
+              },
+              {
+                "label": "Preserved",
+                "value": "17 ft"
+              },
+              {
+                "label": "Desiccated",
+                "value": "13 ft 1 in"
+              }
+            ]
+          },
+          "content": "55 ft figure graphic** collapsing to \"measurement artifact\"",
+          "layoutRole": "takeover"
+        },
+        {
+          "id": "motion_cue_44",
+          "trackStart": 730.0,
+          "trackEnd": 745.0,
+          "duration": 15.0,
+          "componentId": "DataAnimations/MeasurementCompare",
+          "props": {
+            "title": "SPECIMEN MEASUREMENT COLLAPSE",
+            "steps": [
+              {
+                "label": "Documented",
+                "value": "19 ft"
+              },
+              {
+                "label": "Preserved",
+                "value": "17 ft"
+              },
+              {
+                "label": "Desiccated",
+                "value": "13 ft 1 in"
+              }
+            ]
+          },
+          "content": "Black frame \u2192 single line of type",
+          "layoutRole": "takeover"
+        },
+        {
+          "id": "doc_cue_45",
+          "trackStart": 745.0,
+          "trackEnd": 780.0,
+          "duration": 35.0,
+          "componentId": "Archival/DocumentViewer",
+          "props": {
+            "title": "OWN SCAN + BUILD",
+            "highlightText": "Lloyd's Register index, page by page, nothing foun",
+            "durationInFrames": 1050
+          },
+          "content": "Lloyd's Register index, page by page, nothing found",
+          "layoutRole": "takeover"
+        },
+        {
+          "id": "motion_cue_49",
+          "trackStart": 860.0,
+          "trackEnd": 890.0,
+          "duration": 30.0,
+          "componentId": "DataAnimations/MeasurementCompare",
+          "props": {
+            "title": "SPECIMEN MEASUREMENT COLLAPSE",
+            "steps": [
+              {
+                "label": "Documented",
+                "value": "19 ft"
+              },
+              {
+                "label": "Preserved",
+                "value": "17 ft"
+              },
+              {
+                "label": "Desiccated",
+                "value": "13 ft 1 in"
+              }
+            ]
+          },
+          "content": "Scale graphic: 7 ft mantle \u00b7 44 ft reconstruction \u00b7 60 ft fishermen's estimate** vs a 150-ton schooner outline",
+          "layoutRole": "takeover"
+        },
+        {
+          "id": "doc_cue_50",
+          "trackStart": 890.0,
+          "trackEnd": 910.0,
+          "duration": 20.0,
+          "componentId": "Archival/DocumentViewer",
+          "props": {
+            "title": "ARCHIVE.ORG / GALLICA",
+            "highlightText": "Verne, *Twenty Thousand Leagues* \u2014 1870 edition ti",
+            "durationInFrames": 600
+          },
+          "content": "Verne, *Twenty Thousand Leagues* \u2014 1870 edition title page and the squid plate",
+          "layoutRole": "takeover"
+        },
+        {
+          "id": "doc_cue_51",
+          "trackStart": 910.0,
+          "trackEnd": 930.0,
+          "duration": 20.0,
+          "componentId": "Archival/DocumentViewer",
+          "props": {
+            "title": "REUSE",
+            "highlightText": "Bouyer's *Alecton* engraving again, cut against th",
+            "durationInFrames": 600
+          },
+          "content": "Bouyer's *Alecton* engraving again, cut against the Verne plate",
+          "layoutRole": "takeover"
+        },
+        {
+          "id": "motion_cue_52",
+          "trackStart": 930.0,
+          "trackEnd": 955.0,
+          "duration": 25.0,
+          "componentId": "DataAnimations/MeasurementCompare",
+          "props": {
+            "title": "SPECIMEN MEASUREMENT COLLAPSE",
+            "steps": [
+              {
+                "label": "Documented",
+                "value": "19 ft"
+              },
+              {
+                "label": "Preserved",
+                "value": "17 ft"
+              },
+              {
+                "label": "Desiccated",
+                "value": "13 ft 1 in"
+              }
+            ]
+          },
+          "content": "Sequence graphic: Alecton 1861 \u2192 Verne 1870 \u2192 *Pearl* 1874",
+          "layoutRole": "takeover"
+        },
+        {
+          "id": "doc_cue_56",
+          "trackStart": 1040.0,
+          "trackEnd": 1065.0,
+          "duration": 25.0,
+          "componentId": "Archival/DocumentViewer",
+          "props": {
+            "title": "ARCHIVE",
+            "highlightText": "Archival photograph of squid scars on a sperm whal",
+            "durationInFrames": 750
+          },
+          "content": "Archival photograph of squid scars on a sperm whale",
+          "layoutRole": "takeover"
+        },
+        {
+          "id": "motion_cue_58",
+          "trackStart": 1085.0,
+          "trackEnd": 1100.0,
+          "duration": 15.0,
+          "componentId": "DataAnimations/MeasurementCompare",
+          "props": {
+            "title": "SPECIMEN MEASUREMENT COLLAPSE",
+            "steps": [
+              {
+                "label": "Documented",
+                "value": "19 ft"
+              },
+              {
+                "label": "Preserved",
+                "value": "17 ft"
+              },
+              {
+                "label": "Desiccated",
+                "value": "13 ft 1 in"
+              }
+            ]
+          },
+          "content": "Depth graphic: 900 m \u2192 600 m, \"4 h 13 min\", \"5.5 m of tentacle\"",
+          "layoutRole": "takeover"
+        },
+        {
+          "id": "motion_cue_60",
+          "trackStart": 1116.0,
+          "trackEnd": 1130.0,
+          "duration": 14.0,
+          "componentId": "Evidence/VerdictTable",
+          "props": {
+            "title": "DEAD RECKONING \u2014 INVESTIGATIVE VERDICT"
+          },
+          "content": "Full rating table**, one row per line as read",
+          "layoutRole": "takeover"
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "title": "Dead Reckoning \u2014 The Giant Squid That Sank a Ship",
+    "cue_count": 63,
+    "motion_count": 27,
+    "broll_count": 36,
+    "runtime_formatted": "19:35"
+  }
+}

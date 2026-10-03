@@ -28,7 +28,9 @@
     "react-dom": "^18",
     "remotion": "^4.0.513",
     "swr": "^2.5.1",
-    "tailwind-merge": "^3.6.0"
+    "tailwind-merge": "^3.6.0",
+    "ajv": "^8.17.1",
+    "ajv-keywords": "^5.1.0"
   },
   "devDependencies": {
     "@remotion/tailwind": "^4.0.513",

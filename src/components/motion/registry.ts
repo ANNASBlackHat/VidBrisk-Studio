@@ -10,6 +10,12 @@ import { ChatBubbles, ChatBubblesProps, CHAT_BUBBLES_SUPPORTED_ROLES } from "./C
 import { MapExplainer, MapExplainerProps, MAP_EXPLAINER_SUPPORTED_ROLES } from "./MapExplainer";
 import { AudioWaveform, AudioWaveformProps, AUDIO_WAVEFORM_SUPPORTED_ROLES } from "./AudioWaveform";
 import { KineticCaptions, KineticCaptionsProps, KINETIC_CAPTIONS_SUPPORTED_ROLES } from "./KineticCaptions";
+import { DocumentViewer, DocumentViewerProps, DOCUMENT_VIEWER_SUPPORTED_ROLES } from "./DocumentViewer";
+import { RatingCard, RatingCardProps, RATING_CARD_SUPPORTED_ROLES } from "./RatingCard";
+import { SourcingCard, SourcingCardProps, SOURCING_CARD_SUPPORTED_ROLES } from "./SourcingCard";
+import { MeasurementCompare, MeasurementCompareProps, MEASUREMENT_COMPARE_SUPPORTED_ROLES } from "./MeasurementCompare";
+import { ReprintChain, ReprintChainProps, REPRINT_CHAIN_SUPPORTED_ROLES } from "./ReprintChain";
+import { VerdictTable, VerdictTableProps, VERDICT_TABLE_SUPPORTED_ROLES } from "./VerdictTable";
 import { LayoutRole } from "@/lib/types";
 
 /**
@@ -35,6 +41,12 @@ export type MotionComponentProps =
   | MapExplainerProps
   | AudioWaveformProps
   | KineticCaptionsProps
+  | DocumentViewerProps
+  | RatingCardProps
+  | SourcingCardProps
+  | MeasurementCompareProps
+  | ReprintChainProps
+  | VerdictTableProps
   | BaseMotionProps;
 
 /**
@@ -56,6 +68,12 @@ export const MOTION_COMPONENTS: Record<
   "Layouts/SplitScreen": SplitScreen as React.ComponentType<MotionComponentProps>,
   "GeoAnimations/MapExplainer": MapExplainer as React.ComponentType<MotionComponentProps>,
   "AudioAnimations/AudioWaveform": AudioWaveform as React.ComponentType<MotionComponentProps>,
+  "Archival/DocumentViewer": DocumentViewer as React.ComponentType<MotionComponentProps>,
+  "Evidence/RatingCard": RatingCard as React.ComponentType<MotionComponentProps>,
+  "Evidence/SourcingCard": SourcingCard as React.ComponentType<MotionComponentProps>,
+  "DataAnimations/MeasurementCompare": MeasurementCompare as React.ComponentType<MotionComponentProps>,
+  "Evidence/ReprintChain": ReprintChain as React.ComponentType<MotionComponentProps>,
+  "Evidence/VerdictTable": VerdictTable as React.ComponentType<MotionComponentProps>,
 };
 
 /**
@@ -99,6 +117,12 @@ export {
   MapExplainer,
   AudioWaveform,
   KineticCaptions,
+  DocumentViewer,
+  RatingCard,
+  SourcingCard,
+  MeasurementCompare,
+  ReprintChain,
+  VerdictTable,
   STAT_CARD_SUPPORTED_ROLES,
   TYPEWRITER_SUPPORTED_ROLES,
   QUOTE_CARD_SUPPORTED_ROLES,
@@ -110,6 +134,12 @@ export {
   MAP_EXPLAINER_SUPPORTED_ROLES,
   AUDIO_WAVEFORM_SUPPORTED_ROLES,
   KINETIC_CAPTIONS_SUPPORTED_ROLES,
+  DOCUMENT_VIEWER_SUPPORTED_ROLES,
+  RATING_CARD_SUPPORTED_ROLES,
+  SOURCING_CARD_SUPPORTED_ROLES,
+  MEASUREMENT_COMPARE_SUPPORTED_ROLES,
+  REPRINT_CHAIN_SUPPORTED_ROLES,
+  VERDICT_TABLE_SUPPORTED_ROLES,
 };
 
 export type {
@@ -124,4 +154,10 @@ export type {
   MapExplainerProps,
   AudioWaveformProps,
   KineticCaptionsProps,
+  DocumentViewerProps,
+  RatingCardProps,
+  SourcingCardProps,
+  MeasurementCompareProps,
+  ReprintChainProps,
+  VerdictTableProps,
 };

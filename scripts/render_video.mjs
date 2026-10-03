@@ -4,6 +4,7 @@ import fs from "fs";
 import os from "os";
 import http from "http";
 import crypto from "crypto";
+import { execSync } from "child_process";
 import { fileURLToPath } from "url";
 import { bundleRemotion } from "./bundle_remotion.mjs";
 
@@ -112,14 +113,17 @@ function toHttpUrl(p) {
   return `${mediaBaseUrl}/media?path=${encodeURIComponent(resolved)}`;
 }
 
+let fallbackCacheFile = null;
+
 async function cacheMediaLocally(url) {
   if (!url || typeof url !== "string") return url;
+
+  // If local file path
   if (!url.startsWith("http://") && !url.startsWith("https://")) {
     const resolved = resolveLocalPath(url);
     if (resolved) {
       return toHttpUrl(resolved);
     }
-    // If not found on disk, attempt fetching from backend static server
     const cleanUrl = url.replace(/^file:\/\//, "").replace(/^\/+/, "");
     const backendUrl = `http://127.0.0.1:8000/static/${cleanUrl}`;
     try {
@@ -133,8 +137,11 @@ async function cacheMediaLocally(url) {
       return toHttpUrl(url);
     }
   }
-  // If already served by our local micro server
-  if (url.startsWith(mediaBaseUrl)) return url;
+
+  // If already served by localhost / local micro server
+  if (url.startsWith("http://localhost") || url.startsWith("http://127.0.0.1") || url.startsWith(mediaBaseUrl)) {
+    return url;
+  }
 
   try {
     const hash = crypto.createHash("md5").update(url).digest("hex");
@@ -144,24 +151,77 @@ async function cacheMediaLocally(url) {
     const cacheFile = path.join(cacheDir, `${hash}${ext}`);
 
     if (fs.existsSync(cacheFile) && fs.statSync(cacheFile).size > 1024) {
+      if (!fallbackCacheFile) fallbackCacheFile = cacheFile;
       return toHttpUrl(cacheFile);
     }
 
     fs.mkdirSync(cacheDir, { recursive: true });
     console.log(`[Remotion] 📥 Pre-caching remote footage: ${url.slice(0, 70)}...`);
-    const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
-    if (!res.ok) {
-      console.warn(`  ⚠️ Pre-cache HTTP ${res.status}: ${res.statusText}`);
-      return url;
+
+    const proxyUrl = process.env.HTTPS_PROXY || process.env.HTTP_PROXY || process.env.MEDIA_PROXY;
+    let downloaded = false;
+
+    // 1. Try fetch with realistic browser headers
+    try {
+      const res = await fetch(url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+          "Referer": "https://www.pexels.com/",
+          "Accept": "*/*",
+        },
+      });
+      if (res.ok) {
+        const buffer = Buffer.from(await res.arrayBuffer());
+        if (buffer.length >= 1024) {
+          const head = buffer.subarray(0, 50).toString("utf8");
+          if (!head.startsWith("<!DOC") && !head.startsWith("<html") && !head.startsWith('{"')) {
+            fs.writeFileSync(cacheFile, buffer);
+            downloaded = true;
+            console.log(`  ✓ Cached via fetch (${(buffer.length / 1024 / 1024).toFixed(1)} MB)`);
+          } else {
+            console.warn(`  ⚠️ Fetch returned error body (HTML/JSON), trying curl...`);
+          }
+        }
+      } else {
+        console.warn(`  ⚠️ Fetch HTTP ${res.status}: ${res.statusText}, trying curl...`);
+      }
+    } catch (fetchErr) {
+      console.warn(`  ⚠️ Fetch error (${fetchErr.message}), trying curl...`);
     }
-    const buffer = Buffer.from(await res.arrayBuffer());
-    if (buffer.length < 1024) {
-      console.warn(`  ⚠️ Downloaded media is too small (${buffer.length} bytes), not caching`);
-      return url;
+
+    // 2. Fallback to curl with optional proxy and browser headers
+    if (!downloaded) {
+      try {
+        const proxyArg = proxyUrl ? `--proxy "${proxyUrl}"` : "";
+        const curlCmd = `curl -f -k -L -s --compressed -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" -H "Referer: https://www.pexels.com/" ${proxyArg} "${url}" -o "${cacheFile}"`;
+        execSync(curlCmd, { timeout: 30000 });
+        if (fs.existsSync(cacheFile) && fs.statSync(cacheFile).size >= 1024) {
+          const head = fs.readFileSync(cacheFile, { encoding: "utf8" }).slice(0, 50);
+          if (head.startsWith("<!DOC") || head.startsWith("<html") || head.startsWith('{"')) {
+            try { fs.unlinkSync(cacheFile); } catch {}
+          } else {
+            downloaded = true;
+            const sz = (fs.statSync(cacheFile).size / 1024 / 1024).toFixed(1);
+            console.log(`  ✓ Cached via curl (${sz} MB)`);
+          }
+        }
+      } catch (curlErr) {
+        console.warn(`  ⚠️ Curl download failed: ${curlErr.message}`);
+      }
     }
-    fs.writeFileSync(cacheFile, buffer);
-    console.log(`  ✓ Cached (${(buffer.length / 1024 / 1024).toFixed(1)} MB)`);
-    return toHttpUrl(cacheFile);
+
+    if (downloaded) {
+      if (!fallbackCacheFile) fallbackCacheFile = cacheFile;
+      return toHttpUrl(cacheFile);
+    }
+
+    // 3. Fallback to any already cached valid video clip so rendering never crashes
+    if (fallbackCacheFile && fs.existsSync(fallbackCacheFile)) {
+      console.warn(`  ⚠️ Video inaccessible (${url.slice(0, 45)}...), substituting available clip to keep render safe`);
+      return toHttpUrl(fallbackCacheFile);
+    }
+
+    return url;
   } catch (err) {
     console.warn(`  ⚠️ Failed to pre-cache ${url.slice(0, 50)}: ${err.message}`);
     return url;
@@ -385,7 +445,7 @@ const result = await renderMedia({
   overwrite: true,
   browserExecutable,
   chromiumOptions,
-  timeoutInMilliseconds: 600000,
+  timeoutInMilliseconds: 3600000,
   inputProps: {
     projectState: state,
   },

@@ -153,7 +153,11 @@ export const api = {
    * Fetch available local voice profiles and OmniVoice valid tags
    */
   async getVoices(): Promise<VoiceListResponse> {
-    return request<VoiceListResponse>("/voices");
+    try {
+      return await request<VoiceListResponse>("/api/voices");
+    } catch {
+      return await request<VoiceListResponse>("/voices");
+    }
   },
 
   /**
@@ -164,10 +168,17 @@ export const api = {
     genre?: string;
     channel?: string;
   }): Promise<{ recommended_prompt: string; reasoning: string }> {
-    return request<{ recommended_prompt: string; reasoning: string }>("/voices/recommend-prompt", {
-      method: "POST",
-      body: JSON.stringify(params),
-    });
+    try {
+      return await request<{ recommended_prompt: string; reasoning: string }>("/api/voices/recommend-prompt", {
+        method: "POST",
+        body: JSON.stringify(params),
+      });
+    } catch {
+      return await request<{ recommended_prompt: string; reasoning: string }>("/voices/recommend-prompt", {
+        method: "POST",
+        body: JSON.stringify(params),
+      });
+    }
   },
 
   /**

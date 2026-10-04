@@ -8,6 +8,37 @@ import { execSync } from "child_process";
 import { fileURLToPath } from "url";
 import { bundleRemotion } from "./bundle_remotion.mjs";
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const rootDir = path.resolve(__dirname, "..");
+
+// Auto-load environment variables from .env files
+function loadEnvFile(envPath) {
+  if (fs.existsSync(envPath)) {
+    try {
+      const content = fs.readFileSync(envPath, "utf8");
+      for (const rawLine of content.split(/\r?\n/)) {
+        const line = rawLine.trim();
+        if (!line || line.startsWith("#")) continue;
+        const eqIdx = line.indexOf("=");
+        if (eqIdx > 0) {
+          const key = line.slice(0, eqIdx).trim();
+          let val = line.slice(eqIdx + 1).trim();
+          if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+            val = val.slice(1, -1);
+          }
+          if (!process.env[key]) {
+            process.env[key] = val;
+          }
+        }
+      }
+    } catch {}
+  }
+}
+
+loadEnvFile(path.resolve(rootDir, ".env"));
+loadEnvFile(path.resolve(rootDir, ".env.local"));
+loadEnvFile(path.resolve(rootDir, "..", "video-generation-pipeline", ".env"));
+
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 
 const browserExecutable =
@@ -28,9 +59,6 @@ const chromiumOptions = {
     "--disable-features=IsolateOrigins,site-per-process",
   ],
 };
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const rootDir = path.resolve(__dirname, "..");
 
 function resolveLocalPath(p) {
   if (!p || typeof p !== "string") return null;
@@ -159,7 +187,14 @@ async function cacheMediaLocally(url) {
     fs.mkdirSync(cacheDir, { recursive: true });
     console.log(`[Remotion] 📥 Pre-caching remote footage: ${url.slice(0, 70)}...`);
 
-    const proxyUrl = process.env.HTTPS_PROXY || process.env.HTTP_PROXY || process.env.MEDIA_PROXY;
+    const proxyUrl =
+      process.env.HTTPS_PROXY ||
+      process.env.HTTP_PROXY ||
+      process.env.MEDIA_PROXY ||
+      process.env.https_proxy ||
+      process.env.http_proxy ||
+      process.env.ALL_PROXY ||
+      process.env.all_proxy;
     let downloaded = false;
 
     // 1. If proxy is configured or domain is imagekit, use curl with proxy directly (avoids fetch timeouts & 403 blocks)

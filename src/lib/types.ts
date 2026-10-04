@@ -243,6 +243,7 @@ export interface VoiceProfile {
   filename: string;
   has_text: boolean;
   transcript?: string;
+  preview_url?: string;
 }
 
 export interface VoiceListResponse {

@@ -28,8 +28,10 @@ import {
   Tag,
   Volume2,
   Check,
+  Play,
+  Pause,
 } from "lucide-react";
-import { api } from "@/lib/api";
+import { api, API_BASE_URL } from "@/lib/api";
 import { JobCreateRequest, TargetOrientation, VoiceProfile } from "@/lib/types";
 import { PresetSelector } from "@/components/ui/PresetSelector";
 import { cn, formatDuration, formatFileSize } from "@/lib/utils";
@@ -71,6 +73,8 @@ export default function NewVideoPage() {
   const [isLoadingVoices, setIsLoadingVoices] = useState<boolean>(false);
   const [isRecommendingPrompt, setIsRecommendingPrompt] = useState<boolean>(false);
   const [recommendationReason, setRecommendationReason] = useState<string | null>(null);
+  const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
+  const voiceAudioPlayerRef = useRef<HTMLAudioElement | null>(null);
 
   // Advanced options
   const [showAdvanced, setShowAdvanced] = useState<boolean>(false);
@@ -121,6 +125,53 @@ export default function NewVideoPage() {
       isMounted = false;
     };
   }, []);
+
+  // Cleanup active audio player on unmount
+  useEffect(() => {
+    return () => {
+      if (voiceAudioPlayerRef.current) {
+        voiceAudioPlayerRef.current.pause();
+        voiceAudioPlayerRef.current = null;
+      }
+    };
+  }, []);
+
+  const handleToggleVoicePreview = (e: React.MouseEvent, profile: VoiceProfile) => {
+    e.stopPropagation();
+
+    if (playingVoiceId === profile.id) {
+      if (voiceAudioPlayerRef.current) {
+        voiceAudioPlayerRef.current.pause();
+      }
+      setPlayingVoiceId(null);
+      return;
+    }
+
+    if (voiceAudioPlayerRef.current) {
+      voiceAudioPlayerRef.current.pause();
+    }
+
+    const audioUrl = profile.preview_url
+      ? (profile.preview_url.startsWith("http") ? profile.preview_url : `${API_BASE_URL}${profile.preview_url}`)
+      : `${API_BASE_URL}/api/voices/${profile.id}/audio`;
+
+    const player = new Audio(audioUrl);
+    voiceAudioPlayerRef.current = player;
+    setPlayingVoiceId(profile.id);
+
+    player.play().catch((err) => {
+      console.warn("Audio preview playback failed:", err);
+      setPlayingVoiceId(null);
+    });
+
+    player.onended = () => {
+      setPlayingVoiceId(null);
+    };
+
+    player.onerror = () => {
+      setPlayingVoiceId(null);
+    };
+  };
 
   const handleRecommendPrompt = async () => {
     if (!rawInput.trim()) {
@@ -525,13 +576,14 @@ export default function NewVideoPage() {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                           {voiceProfiles.map((p) => {
                             const isSelected = selectedVoiceProfile === p.id;
+                            const isPlaying = playingVoiceId === p.id;
                             return (
                               <button
                                 key={p.id}
                                 type="button"
                                 onClick={() => setSelectedVoiceProfile(p.id)}
                                 className={cn(
-                                  "flex flex-col p-3 rounded-xl border text-left transition-all relative overflow-hidden",
+                                  "flex flex-col p-3 rounded-xl border text-left transition-all relative overflow-hidden group",
                                   isSelected
                                     ? "bg-indigo-950/40 border-indigo-500 text-white shadow-sm shadow-indigo-500/20"
                                     : "bg-slate-900/60 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200"
@@ -548,15 +600,52 @@ export default function NewVideoPage() {
                                       </span>
                                     )}
                                   </div>
-                                  {isSelected && (
-                                    <div className="w-4 h-4 rounded-full bg-indigo-500 flex items-center justify-center text-white">
-                                      <Check className="w-2.5 h-2.5 stroke-[3]" />
-                                    </div>
+
+                                  <div className="flex items-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => handleToggleVoicePreview(e, p)}
+                                      className={cn(
+                                        "flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium transition-all z-10",
+                                        isPlaying
+                                          ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/40 animate-pulse"
+                                          : "bg-slate-800 text-slate-300 hover:bg-indigo-900 hover:text-indigo-200 border border-slate-700"
+                                      )}
+                                      title={isPlaying ? "Stop Preview" : "Listen to Voice"}
+                                    >
+                                      {isPlaying ? (
+                                        <>
+                                          <Pause className="w-2.5 h-2.5 fill-current" />
+                                          <span>Stop</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Play className="w-2.5 h-2.5 fill-current" />
+                                          <span>Play</span>
+                                        </>
+                                      )}
+                                    </button>
+
+                                    {isSelected && (
+                                      <div className="w-4 h-4 rounded-full bg-indigo-500 flex items-center justify-center text-white">
+                                        <Check className="w-2.5 h-2.5 stroke-[3]" />
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-2 mt-1">
+                                  <span className="text-[11px] text-slate-400 font-mono truncate">
+                                    {p.filename}
+                                  </span>
+                                  {isPlaying && (
+                                    <span className="text-[10px] text-indigo-400 flex items-center gap-1 font-mono">
+                                      <Volume2 className="w-3 h-3 animate-pulse" />
+                                      <span>Playing...</span>
+                                    </span>
                                   )}
                                 </div>
-                                <span className="text-[11px] text-slate-400 mt-1 font-mono truncate">
-                                  {p.filename}
-                                </span>
+
                                 {p.transcript && (
                                   <p className="text-[10px] text-slate-500 mt-1.5 line-clamp-1 italic">
                                     &ldquo;{p.transcript}&rdquo;

@@ -35,13 +35,14 @@ const rootDir = path.resolve(__dirname, "..");
 function resolveLocalPath(p) {
   if (!p || typeof p !== "string") return null;
   const clean = p.replace(/^file:\/\//, "");
+  const relClean = clean.replace(/^\/+/, "");
   const candidates = [
     clean,
     path.resolve(clean),
-    path.resolve(rootDir, clean),
-    path.resolve(rootDir, "..", "video-generation-pipeline", clean),
-    path.resolve(rootDir, "..", clean),
-    path.resolve(rootDir, "public", clean),
+    path.resolve(rootDir, relClean),
+    path.resolve(rootDir, "public", relClean),
+    path.resolve(rootDir, "..", "video-generation-pipeline", relClean),
+    path.resolve(rootDir, "..", relClean),
   ];
   for (const cand of candidates) {
     if (fs.existsSync(cand)) {
@@ -161,40 +162,12 @@ async function cacheMediaLocally(url) {
     const proxyUrl = process.env.HTTPS_PROXY || process.env.HTTP_PROXY || process.env.MEDIA_PROXY;
     let downloaded = false;
 
-    // 1. Try fetch with realistic browser headers
-    try {
-      const res = await fetch(url, {
-        headers: {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-          "Referer": "https://www.pexels.com/",
-          "Accept": "*/*",
-        },
-      });
-      if (res.ok) {
-        const buffer = Buffer.from(await res.arrayBuffer());
-        if (buffer.length >= 1024) {
-          const head = buffer.subarray(0, 50).toString("utf8");
-          if (!head.startsWith("<!DOC") && !head.startsWith("<html") && !head.startsWith('{"')) {
-            fs.writeFileSync(cacheFile, buffer);
-            downloaded = true;
-            console.log(`  ✓ Cached via fetch (${(buffer.length / 1024 / 1024).toFixed(1)} MB)`);
-          } else {
-            console.warn(`  ⚠️ Fetch returned error body (HTML/JSON), trying curl...`);
-          }
-        }
-      } else {
-        console.warn(`  ⚠️ Fetch HTTP ${res.status}: ${res.statusText}, trying curl...`);
-      }
-    } catch (fetchErr) {
-      console.warn(`  ⚠️ Fetch error (${fetchErr.message}), trying curl...`);
-    }
-
-    // 2. Fallback to curl with optional proxy and browser headers
-    if (!downloaded) {
+    // 1. If proxy is configured or domain is imagekit, use curl with proxy directly (avoids fetch timeouts & 403 blocks)
+    if (proxyUrl || url.includes("imagekit")) {
       try {
         const proxyArg = proxyUrl ? `--proxy "${proxyUrl}"` : "";
         const curlCmd = `curl -f -k -L -s --compressed -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" -H "Referer: https://www.pexels.com/" ${proxyArg} "${url}" -o "${cacheFile}"`;
-        execSync(curlCmd, { timeout: 30000 });
+        execSync(curlCmd, { timeout: 45000 });
         if (fs.existsSync(cacheFile) && fs.statSync(cacheFile).size >= 1024) {
           const head = fs.readFileSync(cacheFile, { encoding: "utf8" }).slice(0, 50);
           if (head.startsWith("<!DOC") || head.startsWith("<html") || head.startsWith('{"')) {
@@ -202,13 +175,45 @@ async function cacheMediaLocally(url) {
           } else {
             downloaded = true;
             const sz = (fs.statSync(cacheFile).size / 1024 / 1024).toFixed(1);
-            console.log(`  ✓ Cached via curl (${sz} MB)`);
+            console.log(`  ✓ Cached via proxy curl (${sz} MB)`);
           }
         }
       } catch (curlErr) {
-        console.warn(`  ⚠️ Curl download failed: ${curlErr.message}`);
+        console.warn(`  ⚠️ Proxy curl download failed: ${curlErr.message}, falling back...`);
       }
     }
+
+    // 2. Direct fetch attempt if not already downloaded via proxy
+    if (!downloaded) {
+      try {
+        const res = await fetch(url, {
+          headers: {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Referer": "https://www.pexels.com/",
+            "Accept": "*/*",
+          },
+        });
+        if (res.ok) {
+          const buffer = Buffer.from(await res.arrayBuffer());
+          if (buffer.length >= 1024) {
+            const head = buffer.subarray(0, 50).toString("utf8");
+            if (!head.startsWith("<!DOC") && !head.startsWith("<html") && !head.startsWith('{"')) {
+              fs.writeFileSync(cacheFile, buffer);
+              downloaded = true;
+              console.log(`  ✓ Cached via fetch (${(buffer.length / 1024 / 1024).toFixed(1)} MB)`);
+            } else {
+              console.warn(`  ⚠️ Fetch returned error body (HTML/JSON), trying curl...`);
+            }
+          }
+        } else {
+          console.warn(`  ⚠️ Fetch HTTP ${res.status}: ${res.statusText}, trying curl...`);
+        }
+      } catch (fetchErr) {
+        console.warn(`  ⚠️ Fetch error (${fetchErr.message}), trying curl...`);
+      }
+    }
+
+
 
     if (downloaded) {
       if (!fallbackCacheFile) fallbackCacheFile = cacheFile;

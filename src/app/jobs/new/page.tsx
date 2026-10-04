@@ -23,9 +23,14 @@ import {
   Trash2,
   RefreshCw,
   Music,
+  Cpu,
+  Wand2,
+  Tag,
+  Volume2,
+  Check,
 } from "lucide-react";
 import { api } from "@/lib/api";
-import { JobCreateRequest, TargetOrientation } from "@/lib/types";
+import { JobCreateRequest, TargetOrientation, VoiceProfile } from "@/lib/types";
 import { PresetSelector } from "@/components/ui/PresetSelector";
 import { cn, formatDuration, formatFileSize } from "@/lib/utils";
 
@@ -57,6 +62,16 @@ export default function NewVideoPage() {
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // OmniVoice State & Custom Profiles
+  const [omniMode, setOmniMode] = useState<"clone" | "prompt">("clone");
+  const [selectedVoiceProfile, setSelectedVoiceProfile] = useState<string>("deep_documentary");
+  const [voicePrompt, setVoicePrompt] = useState<string>("calm, articulate British male narrator, slow pace, documentary tone");
+  const [voiceProfiles, setVoiceProfiles] = useState<VoiceProfile[]>([]);
+  const [validTags, setValidTags] = useState<string[]>([]);
+  const [isLoadingVoices, setIsLoadingVoices] = useState<boolean>(false);
+  const [isRecommendingPrompt, setIsRecommendingPrompt] = useState<boolean>(false);
+  const [recommendationReason, setRecommendationReason] = useState<string | null>(null);
+
   // Advanced options
   const [showAdvanced, setShowAdvanced] = useState<boolean>(false);
   const [ttsProvider, setTtsProvider] = useState<string>("kokoro");
@@ -77,6 +92,73 @@ export default function NewVideoPage() {
       }
     };
   }, [audioPreviewUrl]);
+
+  // Load available custom voice profiles & valid Omni tags
+  useEffect(() => {
+    let isMounted = true;
+    async function loadVoices() {
+      try {
+        setIsLoadingVoices(true);
+        const data = await api.getVoices();
+        if (isMounted) {
+          setVoiceProfiles(data.custom_voices || []);
+          setValidTags(data.valid_tags || []);
+          if (data.custom_voices && data.custom_voices.length > 0) {
+            setSelectedVoiceProfile(data.custom_voices[0].id);
+          }
+          if (data.default_instruct) {
+            setVoicePrompt(data.default_instruct);
+          }
+        }
+      } catch (err) {
+        console.warn("Could not load voice profiles from backend:", err);
+      } finally {
+        if (isMounted) setIsLoadingVoices(false);
+      }
+    }
+    loadVoices();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const handleRecommendPrompt = async () => {
+    if (!rawInput.trim()) {
+      setErrorMessage("Please enter a script or topic first so AI can analyze the tone and pacing.");
+      return;
+    }
+    setIsRecommendingPrompt(true);
+    setRecommendationReason(null);
+    try {
+      const res = await api.recommendVoicePrompt({ script: rawInput });
+      if (res.recommended_prompt) {
+        setVoicePrompt(res.recommended_prompt);
+      }
+      if (res.reasoning) {
+        setRecommendationReason(res.reasoning);
+      }
+    } catch (err: unknown) {
+      console.warn("Could not recommend voice prompt:", err);
+      const msg = err instanceof Error ? err.message : "Failed to recommend prompt";
+      setErrorMessage(msg);
+    } finally {
+      setIsRecommendingPrompt(false);
+    }
+  };
+
+  const togglePromptTag = (tag: string) => {
+    const currentTags = voicePrompt
+      .split(",")
+      .map((t) => t.trim().toLowerCase())
+      .filter(Boolean);
+    const tagLower = tag.toLowerCase();
+
+    if (currentTags.includes(tagLower)) {
+      setVoicePrompt(currentTags.filter((t) => t !== tagLower).join(", "));
+    } else {
+      setVoicePrompt(currentTags.length > 0 ? `${voicePrompt.trim()}, ${tag}` : tag);
+    }
+  };
 
   const handleAudioFileSelect = (file: File | null) => {
     if (audioPreviewUrl) {
@@ -151,6 +233,7 @@ export default function NewVideoPage() {
     setIsSubmitting(true);
     setErrorMessage(null);
 
+    const isOmni = ttsProvider === "omni";
     const payload: JobCreateRequest = {
       title: title.trim() || undefined,
       raw_input: rawInput.trim() || (audioFile ? `Custom voiceover: ${audioFile.name}` : ""),
@@ -159,7 +242,13 @@ export default function NewVideoPage() {
       tts_provider: voiceSource === "upload" ? "custom" : ttsProvider,
       aligner_provider: alignerProvider,
       single_pass_llm: singlePassLlm,
-      voice_type: voiceSource === "upload" ? "custom" : ttsVoice,
+      voice_type: voiceSource === "upload"
+        ? "custom"
+        : isOmni
+          ? (omniMode === "clone" ? selectedVoiceProfile : "prompt")
+          : ttsVoice,
+      voice: isOmni ? (omniMode === "clone" ? selectedVoiceProfile : undefined) : undefined,
+      voice_prompt: isOmni && omniMode === "prompt" ? voicePrompt.trim() : undefined,
     };
 
     try {
@@ -338,34 +427,269 @@ export default function NewVideoPage() {
 
           {/* Conditional Voice Configuration */}
           {voiceSource === "tts" ? (
-            <div className="flex flex-col gap-2.5 pt-2 border-t border-slate-800/60">
-              <label className="text-xs font-medium text-slate-400">
-                Select Voice Persona
-              </label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-                {TTS_VOICE_PRESETS.map((v) => {
-                  const isSelected = ttsVoice === v.id;
-                  return (
-                    <button
-                      key={v.id}
-                      type="button"
-                      onClick={() => setTtsVoice(v.id)}
-                      className={cn(
-                        "flex flex-col p-2.5 rounded-xl border text-left transition-all",
-                        isSelected
-                          ? "bg-blue-900/30 border-blue-500 text-white"
-                          : "bg-slate-950/30 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200"
-                      )}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold">{v.name}</span>
-                        <span className="text-[10px] text-slate-500 font-mono">{v.gender[0]}</span>
-                      </div>
-                      <span className="text-[10px] text-slate-400 mt-0.5">{v.desc}</span>
-                    </button>
-                  );
-                })}
+            <div className="flex flex-col gap-4 pt-3 border-t border-slate-800/60">
+              {/* TTS Engine Switcher */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5">
+                  <Cpu className="w-3.5 h-3.5 text-blue-400" />
+                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-300">
+                    TTS Engine
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800 self-start sm:self-auto">
+                  <button
+                    type="button"
+                    onClick={() => setTtsProvider("kokoro")}
+                    className={cn(
+                      "px-3 py-1.5 text-xs rounded-lg transition-all font-medium",
+                      ttsProvider === "kokoro"
+                        ? "bg-blue-600 text-white shadow-sm"
+                        : "text-slate-400 hover:text-slate-200"
+                    )}
+                  >
+                    Kokoro (Local Fast)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTtsProvider("omni")}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg transition-all font-medium",
+                      ttsProvider === "omni"
+                        ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm shadow-indigo-500/20"
+                        : "text-slate-400 hover:text-slate-200"
+                    )}
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                    OmniVoice (Colab GPU)
+                  </button>
+                </div>
               </div>
+
+              {/* Mode Specific Configuration */}
+              {ttsProvider === "omni" ? (
+                <div className="flex flex-col gap-3.5 p-4 rounded-xl bg-slate-950/80 border border-indigo-900/50">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-800/80">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-indigo-300">
+                        OmniVoice Synthesis Mode
+                      </span>
+                      <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-800/60">
+                        Zero-Shot Neural
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1 bg-slate-900 p-0.5 rounded-lg border border-slate-800">
+                      <button
+                        type="button"
+                        onClick={() => setOmniMode("clone")}
+                        className={cn(
+                          "px-2.5 py-1 text-[11px] rounded-md transition-all font-medium",
+                          omniMode === "clone"
+                            ? "bg-indigo-600 text-white shadow-sm"
+                            : "text-slate-400 hover:text-slate-200"
+                        )}
+                      >
+                        Audio Voice Clone
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setOmniMode("prompt")}
+                        className={cn(
+                          "px-2.5 py-1 text-[11px] rounded-md transition-all font-medium",
+                          omniMode === "prompt"
+                            ? "bg-indigo-600 text-white shadow-sm"
+                            : "text-slate-400 hover:text-slate-200"
+                        )}
+                      >
+                        Prompt Voice Design
+                      </button>
+                    </div>
+                  </div>
+
+                  {omniMode === "clone" ? (
+                    <div className="flex flex-col gap-3">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-medium text-slate-300 flex items-center gap-1.5">
+                          <Volume2 className="w-3.5 h-3.5 text-indigo-400" />
+                          <span>Select Reference Voice Profile to Clone</span>
+                        </label>
+                        {isLoadingVoices && (
+                          <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
+                            <Loader2 className="w-3 h-3 animate-spin text-indigo-400" />
+                            <span>Scanning data/voices...</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {voiceProfiles.length > 0 ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                          {voiceProfiles.map((p) => {
+                            const isSelected = selectedVoiceProfile === p.id;
+                            return (
+                              <button
+                                key={p.id}
+                                type="button"
+                                onClick={() => setSelectedVoiceProfile(p.id)}
+                                className={cn(
+                                  "flex flex-col p-3 rounded-xl border text-left transition-all relative overflow-hidden",
+                                  isSelected
+                                    ? "bg-indigo-950/40 border-indigo-500 text-white shadow-sm shadow-indigo-500/20"
+                                    : "bg-slate-900/60 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200"
+                                )}
+                              >
+                                <div className="flex items-center justify-between w-full">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs font-semibold text-slate-100">
+                                      {p.name}
+                                    </span>
+                                    {p.has_text && (
+                                      <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800/50">
+                                        Transcript Verified
+                                      </span>
+                                    )}
+                                  </div>
+                                  {isSelected && (
+                                    <div className="w-4 h-4 rounded-full bg-indigo-500 flex items-center justify-center text-white">
+                                      <Check className="w-2.5 h-2.5 stroke-[3]" />
+                                    </div>
+                                  )}
+                                </div>
+                                <span className="text-[11px] text-slate-400 mt-1 font-mono truncate">
+                                  {p.filename}
+                                </span>
+                                {p.transcript && (
+                                  <p className="text-[10px] text-slate-500 mt-1.5 line-clamp-1 italic">
+                                    &ldquo;{p.transcript}&rdquo;
+                                  </p>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="p-4 rounded-xl bg-slate-900/40 border border-slate-800 text-xs text-slate-400">
+                          No audio files detected in <code className="text-indigo-300 font-mono">data/voices/</code>. Add an MP3/WAV file to clone custom voices.
+                        </div>
+                      )}
+
+                      <p className="text-[11px] text-slate-500">
+                        Zero-shot voice cloning matches the timbre, acoustic room resonance, and cadence of your reference sample without training.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-3">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-medium text-slate-300 flex items-center gap-1.5">
+                          <Tag className="w-3.5 h-3.5 text-indigo-400" />
+                          <span>Voice Prompt / Acoustic Description</span>
+                        </label>
+                        <button
+                          type="button"
+                          onClick={handleRecommendPrompt}
+                          disabled={isRecommendingPrompt || !rawInput.trim()}
+                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-900/40 hover:bg-indigo-900/70 border border-indigo-700/60 text-indigo-200 text-[11px] font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          {isRecommendingPrompt ? (
+                            <>
+                              <Loader2 className="w-3 h-3 animate-spin text-indigo-300" />
+                              <span>Analyzing script...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Wand2 className="w-3 h-3 text-indigo-300" />
+                              <span>Auto-detect from Script</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+
+                      <textarea
+                        rows={2}
+                        value={voicePrompt}
+                        onChange={(e) => setVoicePrompt(e.target.value)}
+                        placeholder="e.g. calm, articulate British male narrator, slow pace, documentary tone"
+                        className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-100 placeholder-slate-500 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all resize-none"
+                      />
+
+                      {recommendationReason && (
+                        <div className="text-[11px] text-indigo-300 bg-indigo-950/40 border border-indigo-800/40 p-2 rounded-lg">
+                          💡 <span className="font-semibold">AI Recommendation:</span> {recommendationReason}
+                        </div>
+                      )}
+
+                      {/* Tag quick chips */}
+                      <div className="flex flex-col gap-1.5">
+                        <span className="text-[10px] uppercase font-semibold text-slate-500 tracking-wider">
+                          Quick Whitelist Attributes
+                        </span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {[
+                            "male",
+                            "female",
+                            "low pitch",
+                            "high pitch",
+                            "british accent",
+                            "american accent",
+                            "whisper",
+                            "slow",
+                            "fast",
+                            "clear",
+                            "calm",
+                            "documentary",
+                          ].map((tag) => {
+                            const isIncluded = voicePrompt.toLowerCase().includes(tag);
+                            return (
+                              <button
+                                key={tag}
+                                type="button"
+                                onClick={() => togglePromptTag(tag)}
+                                className={cn(
+                                  "px-2 py-0.5 rounded-md text-[10px] font-medium transition-all border",
+                                  isIncluded
+                                    ? "bg-indigo-900/60 border-indigo-500 text-indigo-200"
+                                    : "bg-slate-900/60 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-300"
+                                )}
+                              >
+                                {isIncluded ? `✓ ${tag}` : `+ ${tag}`}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2.5">
+                  <label className="text-xs font-medium text-slate-400">
+                    Select Voice Persona
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                    {TTS_VOICE_PRESETS.map((v) => {
+                      const isSelected = ttsVoice === v.id;
+                      return (
+                        <button
+                          key={v.id}
+                          type="button"
+                          onClick={() => setTtsVoice(v.id)}
+                          className={cn(
+                            "flex flex-col p-2.5 rounded-xl border text-left transition-all",
+                            isSelected
+                              ? "bg-blue-900/30 border-blue-500 text-white"
+                              : "bg-slate-950/30 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200"
+                          )}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-semibold">{v.name}</span>
+                            <span className="text-[10px] text-slate-500 font-mono">{v.gender[0]}</span>
+                          </div>
+                          <span className="text-[10px] text-slate-400 mt-0.5">{v.desc}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div className="flex flex-col gap-3 pt-2 border-t border-slate-800/60">
@@ -602,6 +926,7 @@ export default function NewVideoPage() {
                   className="w-full p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-xs text-slate-200 focus:outline-none focus:border-blue-500 font-mono"
                 >
                   <option value="kokoro">Kokoro (Local, Apache 2.0 - Default)</option>
+                  <option value="omni">OmniVoice (Colab GPU - Voice Cloning & Custom Prompt)</option>
                   <option value="supersonic">Supersonic 3 / Supertonic (Ultra-fast, On-Device, 31 Langs)</option>
                   <option value="chatterbox">Chatterbox (Local, MIT)</option>
                   <option value="mock">Mock Engine (Fast test)</option>

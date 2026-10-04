@@ -5,6 +5,7 @@ import {
   JobSummaryResponse,
   RenderVideoResponse,
   TimelineJSON,
+  VoiceListResponse,
 } from "./types";
 
 const API_BASE_URL =
@@ -130,7 +131,9 @@ export const api = {
       if (payload.auto_approve !== undefined) formData.append("auto_approve", String(payload.auto_approve));
       if (payload.aligner_provider) formData.append("aligner_provider", payload.aligner_provider);
       if (payload.single_pass_llm !== undefined) formData.append("single_pass_llm", String(payload.single_pass_llm));
-      formData.append("voice_type", "custom");
+      if (payload.voice) formData.append("voice", payload.voice);
+      if (payload.voice_prompt) formData.append("voice_prompt", payload.voice_prompt);
+      formData.append("voice_type", payload.voice_type || "custom");
       formData.append("tts_provider", payload.tts_provider || "custom");
       formData.append("audio_file", file);
 
@@ -143,6 +146,27 @@ export const api = {
     return request<JobResponse>("/jobs", {
       method: "POST",
       body: JSON.stringify(payload),
+    });
+  },
+
+  /**
+   * Fetch available local voice profiles and OmniVoice valid tags
+   */
+  async getVoices(): Promise<VoiceListResponse> {
+    return request<VoiceListResponse>("/voices");
+  },
+
+  /**
+   * Recommend optimal voice design prompt for a video script
+   */
+  async recommendVoicePrompt(params: {
+    script: string;
+    genre?: string;
+    channel?: string;
+  }): Promise<{ recommended_prompt: string; reasoning: string }> {
+    return request<{ recommended_prompt: string; reasoning: string }>("/voices/recommend-prompt", {
+      method: "POST",
+      body: JSON.stringify(params),
     });
   },
 

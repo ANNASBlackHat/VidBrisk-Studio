@@ -227,12 +227,28 @@ export interface JobCreateRequest {
   script?: string;
   prompt?: string;
   voice_type?: "tts" | "custom" | string;
-  tts_provider?: "kokoro" | "supersonic" | "chatterbox" | "custom" | "mock" | string;
+  voice?: string;
+  voice_prompt?: string;
+  tts_provider?: "kokoro" | "omni" | "supersonic" | "chatterbox" | "custom" | "mock" | string;
   aligner_provider?: "easytranscriber" | "whisperx" | "mock" | string;
   target_orientation?: TargetOrientation;
   auto_approve?: boolean;
   single_pass_llm?: boolean;
   audio_file?: File | Blob;
+}
+
+export interface VoiceProfile {
+  id: string;
+  name: string;
+  filename: string;
+  has_text: boolean;
+  transcript?: string;
+}
+
+export interface VoiceListResponse {
+  custom_voices: VoiceProfile[];
+  default_instruct: string;
+  valid_tags: string[];
 }
 
 export interface JobUpdateRequest {

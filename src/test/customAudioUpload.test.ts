@@ -94,4 +94,38 @@ describe("Custom Audio Upload & API Integration", () => {
     expect(formatDuration(0)).toBe("00:00");
     expect(formatDuration(65.4)).toBe("01:05.4");
   });
+
+  it("fetches available voices list", async () => {
+    const mockData = {
+      custom_voices: [{ id: "deep_documentary", name: "Deep Documentary", filename: "deep_documentary.mp3", has_text: true }],
+      default_instruct: "male, middle-aged, low pitch, american accent",
+      valid_tags: ["male", "low pitch", "american accent"],
+    };
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify(mockData),
+    });
+
+    const res = await api.getVoices();
+    expect(res.custom_voices).toHaveLength(1);
+    expect(res.custom_voices[0].id).toBe("deep_documentary");
+    expect(res.default_instruct).toContain("male");
+  });
+
+  it("recommends voice prompt based on script", async () => {
+    const mockData = {
+      recommended_prompt: "male, low pitch, american accent",
+      reasoning: "Deep narration matches documentary style.",
+    };
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify(mockData),
+    });
+
+    const res = await api.recommendVoicePrompt({ script: "Deep in the ocean", genre: "documentary" });
+    expect(res.recommended_prompt).toBe("male, low pitch, american accent");
+    expect(res.reasoning).toBeTruthy();
+  });
 });

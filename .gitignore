@@ -39,6 +39,7 @@ next-env.d.ts
 # renders & temp artifacts
 public/renders/
 public/cache/
+public/audio/
 *.mp4
 *.zip
 .screenshots/

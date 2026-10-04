@@ -25,6 +25,7 @@ interface ClipInspectorProps {
   /** zIndex-ordered layers overlapping the selected clip (multi-layer only) */
   layerStack?: EditorClip[];
   onSelectLayer?: (clipId: string) => void;
+  onSwitchToMotion?: (clipId: string) => void;
 }
 
 export function ClipInspector({
@@ -36,6 +37,7 @@ export function ClipInspector({
   onUpdateClipEnterTransition,
   layerStack,
   onSelectLayer,
+  onSwitchToMotion,
 }: ClipInspectorProps) {
   if (!selectedClip) {
     return (
@@ -459,16 +461,35 @@ export function ClipInspector({
         </div>
       )}
 
-      {/* Alternative Shortlist Candidates Panel (if available) */}
-      {candidates.length > 1 && (
+      {/* Alternative Shortlist Candidates Panel */}
+      {candidates.length > 0 && (
         <div className="flex flex-col gap-2 pt-2 border-t border-slate-800">
-          <span className="font-semibold uppercase tracking-wider text-[10px] text-slate-400 flex items-center gap-1.5">
-            <ArrowRightLeft className="w-3 h-3 text-blue-400" />
-            <span>Swap Alternative Candidate</span>
-          </span>
+          <div className="flex items-center justify-between">
+            <span className="font-semibold uppercase tracking-wider text-[10px] text-slate-400 flex items-center gap-1.5">
+              <ArrowRightLeft className="w-3 h-3 text-blue-400" />
+              <span>Footage Candidates ({candidates.length})</span>
+            </span>
+            {isMotion ? (
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-950 text-purple-300 border border-purple-800 font-mono">
+                Using Motion
+              </span>
+            ) : (
+              selectedClip.componentId && onSwitchToMotion && (
+                <button
+                  type="button"
+                  onClick={() => onSwitchToMotion(selectedClip.id)}
+                  className="text-[10px] px-2 py-0.5 rounded-md bg-purple-950/80 hover:bg-purple-900 text-purple-300 border border-purple-800 font-mono transition-colors"
+                  title="Switch clip back to motion graphic takeover"
+                >
+                  ↺ Back to Motion
+                </button>
+              )
+            )}
+          </div>
 
           <div className="flex flex-col gap-2 mt-1">
-            {candidates.slice(1).map((cand, idx) => {
+            {candidates.map((cand, idx) => {
+              const isSelected = !isMotion && idx === 0;
               const candDuration =
                 cand.duration ??
                 Math.max(0, (cand.source_out ?? 0) - (cand.source_in ?? 0));
@@ -476,11 +497,23 @@ export function ClipInspector({
               return (
                 <div
                   key={cand.chunk_id || idx}
-                  className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 hover:border-blue-500/50 flex flex-col gap-1.5 transition-colors"
+                  className={`p-2.5 rounded-lg border flex flex-col gap-1.5 transition-colors ${
+                    isSelected
+                      ? "bg-blue-950/40 border-blue-600/70"
+                      : "bg-slate-950 border-slate-800 hover:border-slate-700"
+                  }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-mono text-[10px] text-slate-300 font-semibold truncate">
-                      Candidate #{idx + 2}
+                    <span className="font-mono text-[10px] text-slate-300 font-semibold truncate flex items-center gap-1.5">
+                      <span>Candidate #{idx + 1}</span>
+                      {isSelected && (
+                        <span className="text-[9px] px-1.5 py-0.2 rounded bg-blue-900/60 text-blue-300 border border-blue-700">
+                          Active
+                        </span>
+                      )}
+                      <span className="text-[9px] text-slate-500 uppercase">
+                        ({cand.provider || cand.media_type || "video"})
+                      </span>
                     </span>
                     {(cand.score || cand.similarity) && (
                       <span className="text-[10px] font-mono text-emerald-400 font-bold">
@@ -490,15 +523,22 @@ export function ClipInspector({
                   </div>
 
                   <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono">
-                    <span>Duration: {candDuration.toFixed(1)}s</span>
-                    <button
-                      type="button"
-                      onClick={() => onSwapCandidate(selectedClip.id, idx + 1)}
-                      className="flex items-center gap-1 px-2 py-0.5 rounded bg-blue-600 hover:bg-blue-500 text-white font-sans text-[11px] font-medium transition-colors"
-                    >
-                      <CheckCircle2 className="w-3 h-3" />
-                      <span>Select</span>
-                    </button>
+                    <span>Duration: {candDuration > 0 ? `${candDuration.toFixed(1)}s` : "Full"}</span>
+                    {isSelected ? (
+                      <span className="flex items-center gap-1 text-emerald-400 font-sans text-[11px] font-medium">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>Active</span>
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => onSwapCandidate(selectedClip.id, idx)}
+                        className="flex items-center gap-1 px-2 py-0.5 rounded bg-blue-600 hover:bg-blue-500 text-white font-sans text-[11px] font-medium transition-colors"
+                      >
+                        <CheckCircle2 className="w-3 h-3" />
+                        <span>Select</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               );

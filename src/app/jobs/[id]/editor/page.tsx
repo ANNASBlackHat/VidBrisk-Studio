@@ -183,13 +183,49 @@ export default function VideoEditorPage() {
           const candidate = item.candidates[candidateIndex];
           if (!candidate) return item;
 
+          // Reorder candidates so chosen candidate is placed at index 0 (top pick)
+          const nextCandidates = [...item.candidates];
+          const [chosen] = nextCandidates.splice(candidateIndex, 1);
+          nextCandidates.unshift(chosen);
+
+          const assetType = candidate.media_type === "image" ? "image" : "video";
+          const srcIn = candidate.source_in ?? 0;
+          const srcOut = candidate.source_out ?? (srcIn + item.duration);
+
           return {
             ...item,
+            assetType,
             assetId: candidate.chunk_id,
             storagePath: candidate.storage_path,
             storageUrl: candidate.storage_url || candidate.storage_path,
-            sourceIn: candidate.source_in,
-            sourceOut: candidate.source_out,
+            sourceIn: srcIn,
+            sourceOut: srcOut,
+            candidates: nextCandidates,
+            layoutRole: item.layoutRole === "takeover" ? "full" : item.layoutRole,
+          };
+        }),
+      };
+    });
+
+    setProjectState({
+      ...projectState,
+      tracks: updatedTracks,
+    });
+  };
+
+  const handleSwitchToMotion = (clipId: string) => {
+    if (!projectState) return;
+
+    const updatedTracks = projectState.tracks.map((track) => {
+      if (track.id !== "video") return track;
+      return {
+        ...track,
+        items: track.items.map((item) => {
+          if (item.id !== clipId) return item;
+          return {
+            ...item,
+            assetType: "motion",
+            layoutRole: "takeover",
           };
         }),
       };
@@ -441,6 +477,7 @@ export default function VideoEditorPage() {
               selectedClipId: clipId,
             })
           }
+          onSwitchToMotion={handleSwitchToMotion}
         />
       </div>
 

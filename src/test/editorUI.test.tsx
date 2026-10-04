@@ -219,3 +219,90 @@ describe("ClipInspector — layer picker", () => {
     expect(container.textContent).not.toContain("Layer Stack");
   });
 });
+
+describe("ClipInspector — candidate swapping", () => {
+  const mockCandidates = [
+    {
+      chunk_id: "c1",
+      storage_path: "https://example.com/v1.mp4",
+      score: 0.85,
+      media_type: "video" as const,
+      provider: "pexels",
+    },
+    {
+      chunk_id: "c2",
+      storage_path: "https://example.com/v2.mp4",
+      score: 0.72,
+      media_type: "video" as const,
+      provider: "pixabay",
+    },
+  ];
+
+  it("renders all candidates with Select buttons when in motion mode", () => {
+    const onSwapCandidate = vi.fn();
+    const motionClip = clip("m1", 0, 4, {
+      assetType: "motion",
+      componentId: "TextAnimations/Typewriter",
+      candidates: mockCandidates,
+    });
+
+    const { container } = render(
+      React.createElement(ClipInspector, {
+        selectedClip: motionClip as never,
+        onUpdateClipProps: vi.fn(),
+        onUpdateClipTiming: vi.fn(),
+        onSwapCandidate,
+        onDeleteClip: vi.fn(),
+      })
+    );
+
+    expect(container.textContent).toContain("Footage Candidates (2)");
+    expect(container.textContent).toContain("Using Motion");
+    const selectButtons = Array.from(container.querySelectorAll("button")).filter(
+      (b) => b.textContent?.includes("Select")
+    );
+    expect(selectButtons).toHaveLength(2);
+
+    fireEvent.click(selectButtons[0]);
+    expect(onSwapCandidate).toHaveBeenCalledWith("m1", 0);
+  });
+
+  it("marks active candidate and allows swapping to alternatives when in video mode", () => {
+    const onSwapCandidate = vi.fn();
+    const onSwitchToMotion = vi.fn();
+    const videoClip = clip("v1", 0, 4, {
+      assetType: "video",
+      componentId: "TextAnimations/Typewriter",
+      storagePath: "https://example.com/v1.mp4",
+      candidates: mockCandidates,
+    });
+
+    const { container } = render(
+      React.createElement(ClipInspector, {
+        selectedClip: videoClip as never,
+        onUpdateClipProps: vi.fn(),
+        onUpdateClipTiming: vi.fn(),
+        onSwapCandidate,
+        onDeleteClip: vi.fn(),
+        onSwitchToMotion,
+      })
+    );
+
+    expect(container.textContent).toContain("Active");
+    expect(container.textContent).toContain("Back to Motion");
+
+    const selectButtons = Array.from(container.querySelectorAll("button")).filter(
+      (b) => b.textContent?.includes("Select")
+    );
+    expect(selectButtons).toHaveLength(1);
+
+    fireEvent.click(selectButtons[0]);
+    expect(onSwapCandidate).toHaveBeenCalledWith("v1", 1);
+
+    const backButton = Array.from(container.querySelectorAll("button")).find(
+      (b) => b.textContent?.includes("Back to Motion")
+    )!;
+    fireEvent.click(backButton);
+    expect(onSwitchToMotion).toHaveBeenCalledWith("v1");
+  });
+});

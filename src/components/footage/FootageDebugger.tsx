@@ -31,15 +31,10 @@ export function FootageDebugger() {
   const { data: jobsList, isLoading: isJobsLoading } = useSWR(
     "debugger-jobs",
     () => api.getDebuggerJobs(25),
-    {
-      revalidateOnFocus: false,
-      onSuccess: (data) => {
-        if (data.length > 0 && !selectedJobId) {
-          setSelectedJobId(data[0].id);
-        }
-      },
-    }
+    { revalidateOnFocus: false }
   );
+
+  const activeJobId = selectedJobId || (jobsList && jobsList.length > 0 ? jobsList[0].id : "");
 
   // Fetch debug details for selected job
   const {
@@ -47,17 +42,17 @@ export function FootageDebugger() {
     isLoading: isDetailLoading,
     mutate: mutateDetail,
   } = useSWR(
-    selectedJobId ? ["debugger-job-detail", selectedJobId] : null,
-    () => api.getJobSelectionDebug(selectedJobId),
+    activeJobId ? ["debugger-job-detail", activeJobId] : null,
+    () => api.getJobSelectionDebug(activeJobId),
     { revalidateOnFocus: false }
   );
 
   const handleOverride = async (beatId: string, chunkId: string) => {
-    if (!selectedJobId) return;
+    if (!activeJobId) return;
     setOverridingBeatId(beatId);
     setOverrideSuccess(null);
     try {
-      await api.overrideDebuggerSelection(selectedJobId, beatId, chunkId);
+      await api.overrideDebuggerSelection(activeJobId, beatId, chunkId);
       setOverrideSuccess(`Successfully set clip #${chunkId.slice(0, 8)} for beat ${beatId}`);
       await mutateDetail();
       setTimeout(() => setOverrideSuccess(null), 4000);
@@ -88,7 +83,7 @@ export function FootageDebugger() {
         <div className="flex items-center gap-2">
           <label className="text-xs text-slate-400 font-medium">Select Job:</label>
           <select
-            value={selectedJobId}
+            value={activeJobId}
             onChange={(e) => {
               setSelectedJobId(e.target.value);
               setExpandedBeatId(null);
@@ -287,7 +282,7 @@ export function FootageDebugger() {
                                         {cand.provider}
                                       </span>
                                       <span className="text-slate-400 font-mono text-[11px]">
-                                        {cand.duration_sec.toFixed(1)}s
+                                        {(cand.duration_sec ?? 0).toFixed(1)}s
                                       </span>
                                     </div>
 
@@ -296,24 +291,24 @@ export function FootageDebugger() {
                                       <div className="flex items-center justify-between text-[11px]">
                                         <span className="text-slate-400">Semantic Score:</span>
                                         <span className="font-bold text-white font-mono">
-                                          {(cand.score * 100).toFixed(1)}%
+                                          {((cand.score ?? 0) * 100).toFixed(1)}%
                                         </span>
                                       </div>
                                       <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
                                         <div
                                           className="bg-indigo-500 h-1.5 rounded-full"
-                                          style={{ width: `${Math.min(cand.score * 100, 100)}%` }}
+                                          style={{ width: `${Math.min((cand.score ?? 0) * 100, 100)}%` }}
                                         />
                                       </div>
 
-                                      {cand.motion_mean !== undefined && (
+                                      {cand.motion_mean !== undefined && cand.motion_mean !== null && (
                                         <div className="flex items-center justify-between text-[11px] text-slate-400 pt-0.5">
                                           <span className="flex items-center gap-1">
                                             <Activity className="w-3 h-3 text-emerald-400" />
                                             Motion:
                                           </span>
                                           <span className="font-mono text-slate-300">
-                                            {cand.motion_mean.toFixed(1)}
+                                            {Number(cand.motion_mean).toFixed(1)}
                                           </span>
                                         </div>
                                       )}

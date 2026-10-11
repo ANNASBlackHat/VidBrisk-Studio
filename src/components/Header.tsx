@@ -54,6 +54,17 @@ export function Header() {
               <Sparkles className="h-4 w-4 text-blue-400" />
               Generate Video
             </Link>
+            <Link
+              href="/footage"
+              className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                pathname.startsWith("/footage")
+                  ? "bg-slate-800 text-white"
+                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"
+              }`}
+            >
+              <Film className="h-4 w-4 text-indigo-400" />
+              Footage Library
+            </Link>
           </nav>
         </div>
 

@@ -277,4 +277,185 @@ export const api = {
   async getHealth(): Promise<{ status: string; service: string }> {
     return request<{ status: string; service: string }>("/health");
   },
+
+  /**
+   * Browse footage library shots with filters
+   */
+  async getFootageShots(params: import("./types").ShotFilterParams = {}): Promise<import("./types").ShotsListResponse> {
+    const searchParams = new URLSearchParams();
+    if (params.provider && params.provider !== "all") searchParams.set("provider", params.provider);
+    if (params.orientation && params.orientation !== "all") searchParams.set("orientation", params.orientation);
+    if (params.min_duration !== undefined) searchParams.set("min_duration", params.min_duration.toString());
+    if (params.max_duration !== undefined) searchParams.set("max_duration", params.max_duration.toString());
+    if (params.min_motion !== undefined) searchParams.set("min_motion", params.min_motion.toString());
+    if (params.used && params.used !== "all") searchParams.set("used", params.used);
+    if (params.sort) searchParams.set("sort", params.sort);
+    if (params.limit !== undefined) searchParams.set("limit", params.limit.toString());
+    if (params.offset !== undefined) searchParams.set("offset", params.offset.toString());
+
+    const qs = searchParams.toString();
+    return request<import("./types").ShotsListResponse>(`/footage/shots${qs ? `?${qs}` : ""}`);
+  },
+
+  /**
+   * Get single shot detail
+   */
+  async getFootageShotDetail(shotId: string): Promise<import("./types").Shot> {
+    return request<import("./types").Shot>(`/footage/shots/${shotId}`);
+  },
+
+  /**
+   * Semantic vector search across footage shots
+   */
+  async searchFootage(req: import("./types").FootageSearchRequest): Promise<import("./types").FootageSearchResponse> {
+    return request<import("./types").FootageSearchResponse>("/footage/search", {
+      method: "POST",
+      body: JSON.stringify(req),
+    });
+  },
+
+  /**
+   * Footage library analytics summary
+   */
+  async getFootageAnalytics(): Promise<import("./types").FootageAnalyticsSummary> {
+    return request<import("./types").FootageAnalyticsSummary>("/footage/analytics/summary");
+  },
+
+  /**
+   * Available embedding models
+   */
+  async getFootageModels(): Promise<import("./types").EmbeddingModelInfo[]> {
+    return request<import("./types").EmbeddingModelInfo[]>("/footage/models");
+  },
+
+  /**
+   * Get duplicate clusters by tier
+   */
+  async getFootageDuplicates(tier?: string, status: string = "pending"): Promise<import("./types").DuplicateGroupsResponse> {
+    const params = new URLSearchParams();
+    if (tier && tier !== "all") params.set("tier", tier);
+    if (status && status !== "all") params.set("status", status);
+    const qs = params.toString();
+    return request<import("./types").DuplicateGroupsResponse>(`/footage/duplicates${qs ? `?${qs}` : ""}`);
+  },
+
+  /**
+   * Trigger duplicate scan
+   */
+  async triggerDetectDuplicates(maxGroups: number = 10): Promise<{ status: string; groups_created: number }> {
+    return request<{ status: string; groups_created: number }>(`/footage/duplicates/detect?max_groups=${maxGroups}`, {
+      method: "POST",
+    });
+  },
+
+  /**
+   * Resolve duplicate group (merge, keep, archive)
+   */
+  async resolveFootageDuplicate(groupId: string, req: import("./types").DuplicateResolutionRequest): Promise<{ status: string }> {
+    return request<{ status: string }>(`/footage/duplicates/${groupId}/resolve`, {
+      method: "POST",
+      body: JSON.stringify(req),
+    });
+  },
+
+  /**
+   * Get 2D embedding map points and clusters
+   */
+  async getFootageMap(modelId: string = "xclip-base-patch32"): Promise<import("./types").MapDataResponse> {
+    return request<import("./types").MapDataResponse>(`/footage/map?model=${encodeURIComponent(modelId)}`);
+  },
+
+  /**
+   * Recompute 2D embedding projection
+   */
+  async recomputeFootageMap(modelId: string = "xclip-base-patch32", maxPoints: number = 150): Promise<{ status: string; projected_points: number }> {
+    return request<{ status: string; projected_points: number }>(`/footage/map/recompute?model=${encodeURIComponent(modelId)}&max_points=${maxPoints}`, {
+      method: "POST",
+    });
+  },
+
+  /**
+   * List controlled vocabulary entities
+   */
+  async getFootageEntities(): Promise<import("./types").Entity[]> {
+    return request<import("./types").Entity[]>("/footage/entities");
+  },
+
+  /**
+   * Create a new named subject entity
+   */
+  async createFootageEntity(body: import("./types").EntityCreateRequest): Promise<import("./types").Entity> {
+    return request<import("./types").Entity>("/footage/entities", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  },
+
+  /**
+   * Get suggested unlinked shots for an entity
+   */
+  async getEntitySuggestions(entityId: string, limit: number = 12): Promise<import("./types").Shot[]> {
+    return request<import("./types").Shot[]>(`/footage/entities/${entityId}/suggestions?limit=${limit}`);
+  },
+
+  /**
+   * Link a shot to an entity
+   */
+  async linkShotEntity(shotId: string, entityId: string): Promise<{ status: string }> {
+    return request<{ status: string }>(`/footage/shots/${shotId}/entities`, {
+      method: "POST",
+      body: JSON.stringify({ entity_id: entityId }),
+    });
+  },
+
+  /**
+   * List jobs available for selection debugging
+   */
+  async getDebuggerJobs(limit: number = 20): Promise<import("./types").DebuggerJobListItem[]> {
+    return request<import("./types").DebuggerJobListItem[]>(`/footage/debugger/jobs?limit=${limit}`);
+  },
+
+  /**
+   * Get full per-beat selection debugging details for a job
+   */
+  async getJobSelectionDebug(jobId: string): Promise<import("./types").DebuggerJob> {
+    return request<import("./types").DebuggerJob>(`/footage/debugger/${jobId}`);
+  },
+
+  /**
+   * Override a beat's selected footage candidate
+   */
+  async overrideDebuggerSelection(jobId: string, beatId: string, chunkId: string): Promise<{ status: string }> {
+    return request<{ status: string }>(`/footage/debugger/${jobId}/override`, {
+      method: "POST",
+      body: JSON.stringify({ beat_id: beatId, chunk_id: chunkId }),
+    });
+  },
+
+  /**
+   * Run model retrieval comparative evaluation
+   */
+  async runEvalCompare(body: import("./types").EvalCompareRequest): Promise<import("./types").EvalCompareResponse> {
+    return request<import("./types").EvalCompareResponse>("/footage/eval/compare", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  },
+
+  /**
+   * Get shots for the curation queue
+   */
+  async getCurationQueue(status: string = "pending", limit: number = 30, offset: number = 0): Promise<import("./types").CurationQueueResponse> {
+    return request<import("./types").CurationQueueResponse>(`/footage/curation/queue?status=${status}&limit=${limit}&offset=${offset}`);
+  },
+
+  /**
+   * Apply curation status and tags to a shot
+   */
+  async updateShotCuration(chunkId: string, status: "approved" | "rejected" | "pending", tags?: string[]): Promise<{ status: string }> {
+    return request<{ status: string }>(`/footage/curation/${chunkId}`, {
+      method: "POST",
+      body: JSON.stringify({ status, tags }),
+    });
+  },
 };

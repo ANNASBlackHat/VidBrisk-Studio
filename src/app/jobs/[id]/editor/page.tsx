@@ -188,7 +188,7 @@ export default function VideoEditorPage() {
           const [chosen] = nextCandidates.splice(candidateIndex, 1);
           nextCandidates.unshift(chosen);
 
-          const assetType = candidate.media_type === "image" ? "image" : "video";
+          const assetType: "video" | "image" = candidate.media_type === "image" ? "image" : "video";
           const srcIn = candidate.source_in ?? 0;
           const srcOut = candidate.source_out ?? (srcIn + item.duration);
 
@@ -224,8 +224,8 @@ export default function VideoEditorPage() {
           if (item.id !== clipId) return item;
           return {
             ...item,
-            assetType: "motion",
-            layoutRole: "takeover",
+            assetType: "motion" as const,
+            layoutRole: "takeover" as const,
           };
         }),
       };

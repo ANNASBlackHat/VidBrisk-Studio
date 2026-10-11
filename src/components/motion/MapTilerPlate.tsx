@@ -124,10 +124,9 @@ export const MapTilerPlate: React.FC<MapTilerPlateProps> = ({
           style: `https://api.maptiler.com/maps/dataviz-v4-dark/style.json?key=${apiKey}`,
           center: [origLng, origLat],
           zoom: mode === "pin" ? 6.5 : 3.0,
-          preserveDrawingBuffer: true,
           interactive: false,
           attributionControl: false,
-        });
+        } as any);
 
         mapRef.current = map;
 

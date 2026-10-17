@@ -305,9 +305,18 @@ if (timelineFile && fs.existsSync(timelineFile)) {
   for (const track of timeline.tracks || []) {
     if (track.type === "video") {
       for (const item of track.items || []) {
-        const dur = Math.max(0.1, (item.trackEnd || 0) - (item.trackStart || 0));
-        const rawMedia = item.storageUrl || item.storagePath;
+        let rawMedia = item.storageUrl || item.storagePath;
+        if (rawMedia && typeof rawMedia === "string" && rawMedia.startsWith("file://")) {
+          const testPath = resolveLocalPath(rawMedia);
+          if (!testPath) {
+            const sp = item.storagePath || "";
+            if (sp && !sp.includes("/") && !sp.includes("\\") && sp.length > 20) {
+              rawMedia = `https://drive.google.com/uc?export=download&id=${sp}`;
+            }
+          }
+        }
         const cachedUrl = await cacheMediaLocally(rawMedia);
+        const dur = Math.max(0.1, (item.trackEnd || 0) - (item.trackStart || 0));
         videoItems.push({
           id: item.id,
           trackId: "video",

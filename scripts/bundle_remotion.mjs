@@ -27,10 +27,38 @@ if (fs.existsSync(envLocalPath)) {
   }
 }
 
+function isDirectoryNewerThan(dirPath, targetTime) {
+  if (!fs.existsSync(dirPath)) return false;
+  try {
+    const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+    for (const entry of entries) {
+      const full = path.join(dirPath, entry.name);
+      if (entry.isDirectory()) {
+        if (isDirectoryNewerThan(full, targetTime)) return true;
+      } else if (entry.isFile() && /\.(tsx?|jsx?|css|json)$/.test(entry.name)) {
+        if (fs.statSync(full).mtimeMs > targetTime) return true;
+      }
+    }
+  } catch {}
+  return false;
+}
+
 export async function bundleRemotion({ force = false, silent = false } = {}) {
   const indexHtml = path.join(bundleDir, "index.html");
 
-  if (!force && fs.existsSync(indexHtml)) {
+  let isStale = false;
+  if (fs.existsSync(indexHtml)) {
+    const bundleTime = fs.statSync(indexHtml).mtimeMs;
+    const srcDir = path.join(rootDir, "src");
+    if (isDirectoryNewerThan(srcDir, bundleTime)) {
+      isStale = true;
+      if (!silent) {
+        console.log("[Remotion Bundler] 🔄 Source files in src/ are newer than pre-built bundle. Re-bundling...");
+      }
+    }
+  }
+
+  if (!force && !isStale && fs.existsSync(indexHtml)) {
     if (!silent) {
       console.log(`[Remotion Bundler] ⚡ Found existing pre-built bundle at ${bundleDir}`);
     }

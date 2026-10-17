@@ -115,7 +115,11 @@ const mediaServer = http.createServer((req, res) => {
         "Content-Type": contentType,
         "Access-Control-Allow-Origin": "*",
       });
-      fs.createReadStream(filePath, { start, end }).pipe(res);
+      const stream = fs.createReadStream(filePath, { start, end });
+      res.on("close", () => {
+        try { stream.destroy(); } catch {}
+      });
+      stream.pipe(res);
     } else {
       res.writeHead(200, {
         "Content-Length": fileSize,
@@ -123,7 +127,11 @@ const mediaServer = http.createServer((req, res) => {
         "Accept-Ranges": "bytes",
         "Access-Control-Allow-Origin": "*",
       });
-      fs.createReadStream(filePath).pipe(res);
+      const stream = fs.createReadStream(filePath);
+      res.on("close", () => {
+        try { stream.destroy(); } catch {}
+      });
+      stream.pipe(res);
     }
   } else {
     res.writeHead(404);
@@ -143,6 +151,51 @@ function toHttpUrl(p) {
 }
 
 let fallbackCacheFile = null;
+const urlToLocalFileMap = new Map();
+const mediaDurationCache = new Map();
+
+function probeMediaDuration(filePath) {
+  if (!filePath || !fs.existsSync(filePath)) return null;
+  if (mediaDurationCache.has(filePath)) return mediaDurationCache.get(filePath);
+  try {
+    const cmd = `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${filePath}"`;
+    const out = execSync(cmd, { timeout: 5000, encoding: "utf8" }).trim();
+    const dur = parseFloat(out);
+    if (!isNaN(dur) && dur > 0) {
+      mediaDurationCache.set(filePath, dur);
+      return dur;
+    }
+  } catch (e) {}
+  return null;
+}
+
+function ensureMediaDuration(filePath, requiredDuration) {
+  if (!filePath || !fs.existsSync(filePath)) return filePath;
+  const currentDur = probeMediaDuration(filePath);
+  if (!currentDur || currentDur <= 0 || currentDur >= requiredDuration) {
+    return filePath;
+  }
+  const ext = path.extname(filePath);
+  const loopedPath = filePath.replace(new RegExp(`\\${ext}$`), `_looped_${Math.ceil(requiredDuration)}${ext}`);
+  if (fs.existsSync(loopedPath) && probeMediaDuration(loopedPath) >= requiredDuration) {
+    return loopedPath;
+  }
+  try {
+    const loops = Math.ceil(requiredDuration / currentDur) + 1;
+    const cmd = `ffmpeg -y -stream_loop ${loops} -i "${filePath}" -c copy "${loopedPath}"`;
+    execSync(cmd, { stdio: "ignore", timeout: 10000 });
+    if (fs.existsSync(loopedPath)) {
+      mediaDurationCache.set(loopedPath, probeMediaDuration(loopedPath));
+      console.log(
+        `[Remotion] 🔄 Looped short clip '${path.basename(filePath)}' (${currentDur.toFixed(2)}s -> ${(currentDur * loops).toFixed(2)}s) to prevent EOF freeze across ${requiredDuration.toFixed(2)}s beat.`
+      );
+      return loopedPath;
+    }
+  } catch (err) {
+    console.warn(`[Remotion] ⚠️ Failed to loop file ${filePath}: ${err.message}`);
+  }
+  return filePath;
+}
 
 async function cacheMediaLocally(url) {
   if (!url || typeof url !== "string") return url;
@@ -151,7 +204,10 @@ async function cacheMediaLocally(url) {
   if (!url.startsWith("http://") && !url.startsWith("https://")) {
     const resolved = resolveLocalPath(url);
     if (resolved) {
-      return toHttpUrl(resolved);
+      const httpUrl = toHttpUrl(resolved);
+      urlToLocalFileMap.set(httpUrl, resolved);
+      urlToLocalFileMap.set(url, resolved);
+      return httpUrl;
     }
     const cleanUrl = url.replace(/^file:\/\//, "").replace(/^\/+/, "");
     const backendUrl = `http://127.0.0.1:8000/static/${cleanUrl}`;
@@ -181,7 +237,10 @@ async function cacheMediaLocally(url) {
 
     if (fs.existsSync(cacheFile) && fs.statSync(cacheFile).size > 1024) {
       if (!fallbackCacheFile) fallbackCacheFile = cacheFile;
-      return toHttpUrl(cacheFile);
+      const httpUrl = toHttpUrl(cacheFile);
+      urlToLocalFileMap.set(httpUrl, cacheFile);
+      urlToLocalFileMap.set(url, cacheFile);
+      return httpUrl;
     }
 
     fs.mkdirSync(cacheDir, { recursive: true });
@@ -252,13 +311,19 @@ async function cacheMediaLocally(url) {
 
     if (downloaded) {
       if (!fallbackCacheFile) fallbackCacheFile = cacheFile;
-      return toHttpUrl(cacheFile);
+      const httpUrl = toHttpUrl(cacheFile);
+      urlToLocalFileMap.set(httpUrl, cacheFile);
+      urlToLocalFileMap.set(url, cacheFile);
+      return httpUrl;
     }
 
     // 3. Fallback to any already cached valid video clip so rendering never crashes
     if (fallbackCacheFile && fs.existsSync(fallbackCacheFile)) {
       console.warn(`  ⚠️ Video inaccessible (${url.slice(0, 45)}...), substituting available clip to keep render safe`);
-      return toHttpUrl(fallbackCacheFile);
+      const httpUrl = toHttpUrl(fallbackCacheFile);
+      urlToLocalFileMap.set(httpUrl, fallbackCacheFile);
+      urlToLocalFileMap.set(url, fallbackCacheFile);
+      return httpUrl;
     }
 
     return url;
@@ -273,6 +338,7 @@ let stateFile = "";
 let timelineFile = "";
 let outFile = "";
 let forceBundle = false;
+let frameRange = null;
 
 for (let i = 0; i < args.length; i++) {
   if (args[i] === "--state" && args[i + 1]) {
@@ -286,6 +352,9 @@ for (let i = 0; i < args.length; i++) {
     i++;
   } else if (args[i] === "--force-bundle") {
     forceBundle = true;
+  } else if ((args[i] === "--frames" || args[i] === "--frame-range") && args[i + 1]) {
+    frameRange = args[i + 1].split("-").map((n) => parseInt(n, 10));
+    i++;
   }
 }
 
@@ -317,6 +386,31 @@ if (timelineFile && fs.existsSync(timelineFile)) {
         }
         const cachedUrl = await cacheMediaLocally(rawMedia);
         const dur = Math.max(0.1, (item.trackEnd || 0) - (item.trackStart || 0));
+        let safeSourceIn = item.sourceIn || 0;
+        let safeSourceOut = item.sourceOut || dur;
+
+        let finalCachedUrl = cachedUrl;
+        const localFile = urlToLocalFileMap.get(cachedUrl) || urlToLocalFileMap.get(rawMedia) || resolveLocalPath(rawMedia);
+        if (localFile) {
+          const mediaDur = probeMediaDuration(localFile);
+          if (mediaDur !== null && mediaDur > 0) {
+            if (safeSourceIn >= mediaDur || safeSourceIn + 0.05 > mediaDur) {
+              safeSourceIn = 0.0;
+              safeSourceOut = safeSourceIn + dur;
+              console.log(
+                `[Remotion] 🛡️ [Sanitize] Clip '${item.id}' sourceIn (${item.sourceIn}s) exceeds file duration (${mediaDur.toFixed(2)}s). Clamped to 0.0s.`
+              );
+            }
+            if (safeSourceIn + dur > mediaDur) {
+              const loopedFile = ensureMediaDuration(localFile, safeSourceIn + dur);
+              if (loopedFile !== localFile) {
+                finalCachedUrl = toHttpUrl(loopedFile);
+                urlToLocalFileMap.set(finalCachedUrl, loopedFile);
+              }
+            }
+          }
+        }
+
         videoItems.push({
           id: item.id,
           trackId: "video",
@@ -325,10 +419,10 @@ if (timelineFile && fs.existsSync(timelineFile)) {
           duration: dur,
           assetType: item.assetType || "video",
           assetId: item.assetId,
-          sourceIn: item.sourceIn || 0,
-          sourceOut: item.sourceOut || dur,
+          sourceIn: safeSourceIn,
+          sourceOut: safeSourceOut,
           storagePath: item.storagePath,
-          storageUrl: cachedUrl,
+          storageUrl: finalCachedUrl,
           componentId: item.componentId,
           props: item.props || {},
           rawContent: item.rawContent,
@@ -447,9 +541,38 @@ if (timelineFile && fs.existsSync(timelineFile)) {
   state = JSON.parse(fs.readFileSync(stateFile, "utf-8"));
   for (const track of state.tracks || []) {
     for (const item of track.items || []) {
+      const origSource = item.storageUrl || item.storagePath || item.assetId;
       if (item.assetId) item.assetId = await cacheMediaLocally(item.assetId);
       if (item.storageUrl) item.storageUrl = await cacheMediaLocally(item.storageUrl);
       if (item.storagePath && !item.storageUrl) item.storageUrl = await cacheMediaLocally(item.storagePath);
+
+      if (track.type === "video") {
+        const cachedTarget = item.storageUrl || item.storagePath;
+        const localFile = urlToLocalFileMap.get(cachedTarget) || urlToLocalFileMap.get(origSource) || resolveLocalPath(origSource);
+        if (localFile) {
+          const mediaDur = probeMediaDuration(localFile);
+          if (mediaDur !== null && mediaDur > 0) {
+            const dur = Math.max(0.1, item.duration || (item.trackEnd || 0) - (item.trackStart || 0));
+            if (item.sourceIn && (item.sourceIn >= mediaDur || item.sourceIn + 0.05 > mediaDur)) {
+              const oldIn = item.sourceIn;
+              item.sourceIn = 0.0;
+              item.sourceOut = item.sourceIn + dur;
+              console.log(
+                `[Remotion] 🛡️ [Sanitize] State clip '${item.id}' sourceIn (${oldIn}s) exceeds file duration (${mediaDur.toFixed(2)}s). Clamped to 0.0s.`
+              );
+            }
+            const sIn = item.sourceIn || 0;
+            if (sIn + dur > mediaDur) {
+              const loopedFile = ensureMediaDuration(localFile, sIn + dur);
+              if (loopedFile !== localFile) {
+                const finalUrl = toHttpUrl(loopedFile);
+                urlToLocalFileMap.set(finalUrl, loopedFile);
+                item.storageUrl = finalUrl;
+              }
+            }
+          }
+        }
+      }
     }
   }
 } else {
@@ -508,6 +631,7 @@ const result = await renderMedia({
   },
   imageFormat: "jpeg",
   concurrency: 2,
+  frameRange: frameRange && frameRange.length === 2 ? [frameRange[0], frameRange[1]] : undefined,
 });
 
 mediaServer.close();

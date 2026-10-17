@@ -277,10 +277,10 @@ export function VideoComposition({ projectState }: VideoCompositionProps) {
 
   // Renders one visual layer. Multiple items with overlapping
   // trackStart/trackEnd coexist by design — stacking order follows the
-  // video track's item order (zIndex-sorted by the adapter).
   const renderLayer = (item: EditorClip) => {
     const fromFrame = Math.max(0, Math.round(item.trackStart * fps));
-    const durationFrames = Math.max(1, Math.round(item.duration * fps));
+    const toFrame = Math.max(fromFrame + 1, Math.round((item.trackEnd ?? (item.trackStart + item.duration)) * fps));
+    const durationFrames = toFrame - fromFrame;
 
     if (item.assetType === "motion") {
       const MotionComp = getMotionComponent(item.componentId);
@@ -360,7 +360,8 @@ export function VideoComposition({ projectState }: VideoCompositionProps) {
 
   const renderTextItem = (item: EditorClip) => {
     const fromFrame = Math.max(0, Math.round(item.trackStart * fps));
-    const durationFrames = Math.max(1, Math.round(item.duration * fps));
+    const toFrame = Math.max(fromFrame + 1, Math.round((item.trackEnd ?? (item.trackStart + item.duration)) * fps));
+    const durationFrames = toFrame - fromFrame;
 
     if (!item.content) return null;
 
@@ -383,7 +384,8 @@ export function VideoComposition({ projectState }: VideoCompositionProps) {
 
   const renderAudioItem = (item: EditorClip) => {
     const fromFrame = Math.max(0, Math.round(item.trackStart * fps));
-    const durationFrames = Math.max(1, Math.round(item.duration * fps));
+    const toFrame = Math.max(fromFrame + 1, Math.round((item.trackEnd ?? (item.trackStart + item.duration)) * fps));
+    const durationFrames = toFrame - fromFrame;
     const rawAudioUrl = item.assetId || item.storageUrl || item.storagePath;
     const resolvedAudioUrl = resolveMediaUrl(rawAudioUrl);
 

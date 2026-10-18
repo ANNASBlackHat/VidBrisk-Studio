@@ -1,4 +1,5 @@
 import {
+  EngineInfo,
   EngineListResponse,
   JobApprovalRequest,
   JobCreateRequest,
@@ -225,8 +226,31 @@ export const api = {
    * Fetch available video rendering engines supported by backend
    */
   async getEngines(): Promise<EngineListResponse> {
+    const descriptions: Record<string, string> = {
+      remotion: "Full React documentary motion graphics & rich charts",
+      hyperframes: "Declarative HTML5/GSAP canvas, zero npm requirements",
+      native_fast: "Pure FFmpeg filtergraphs, ultra-fast headless render",
+    };
+
     try {
-      return await request<EngineListResponse>("/jobs/engines/list");
+      const data = await request<any>("/jobs/engines/list");
+      if (data && Array.isArray(data.engines)) {
+        const normalizedEngines: EngineInfo[] = data.engines.map((e: any) => {
+          if (typeof e === "string") {
+            return {
+              name: e,
+              description: descriptions[e] || `${e} video engine`,
+              is_default: e === (data.default || "remotion"),
+            };
+          }
+          return e;
+        });
+        return {
+          engines: normalizedEngines,
+          default: data.default || "remotion",
+        };
+      }
+      return data;
     } catch {
       return {
         engines: [

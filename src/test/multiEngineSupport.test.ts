@@ -40,6 +40,39 @@ describe("Multi-Engine Support & API Integration", () => {
     );
   });
 
+  it("normalizes string array from /jobs/engines/list into EngineInfo objects", async () => {
+    const rawBackendResponse = {
+      engines: ["remotion", "hyperframes", "native_fast"],
+      default: "remotion",
+    };
+
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify(rawBackendResponse),
+    });
+    globalThis.fetch = mockFetch;
+
+    const res = await api.getEngines();
+    expect(res.engines).toHaveLength(3);
+    expect(res.default).toBe("remotion");
+    expect(res.engines[0]).toEqual({
+      name: "remotion",
+      description: "Full React documentary motion graphics & rich charts",
+      is_default: true,
+    });
+    expect(res.engines[1]).toEqual({
+      name: "hyperframes",
+      description: "Declarative HTML5/GSAP canvas, zero npm requirements",
+      is_default: false,
+    });
+    expect(res.engines[2]).toEqual({
+      name: "native_fast",
+      description: "Pure FFmpeg filtergraphs, ultra-fast headless render",
+      is_default: false,
+    });
+  });
+
   it("falls back to default engines if /jobs/engines/list fails", async () => {
     const mockFetch = vi.fn().mockResolvedValue({
       ok: false,

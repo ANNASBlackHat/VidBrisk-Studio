@@ -339,6 +339,7 @@ let timelineFile = "";
 let outFile = "";
 let forceBundle = false;
 let frameRange = null;
+let noCaptions = false;
 
 for (let i = 0; i < args.length; i++) {
   if (args[i] === "--state" && args[i + 1]) {
@@ -352,6 +353,8 @@ for (let i = 0; i < args.length; i++) {
     i++;
   } else if (args[i] === "--force-bundle") {
     forceBundle = true;
+  } else if (args[i] === "--no-captions" || args[i] === "--no-subtitles") {
+    noCaptions = true;
   } else if ((args[i] === "--frames" || args[i] === "--frame-range") && args[i + 1]) {
     frameRange = args[i + 1].split("-").map((n) => parseInt(n, 10));
     i++;
@@ -481,29 +484,39 @@ if (timelineFile && fs.existsSync(timelineFile)) {
   }
 
   // Ensure kinetic captions from resolved_beats for beats that don't already have textItems
-  for (const rb of timeline.metadata?.resolved_beats || []) {
-    const beatId = rb.beat?.id;
-    if (!beatId) continue;
-    const existing = textItems.find((t) => t.id && t.id.includes(beatId));
-    if (existing) {
-      if (!existing.timings && rb.timings && rb.timings.length > 0) {
-        existing.timings = rb.timings;
-      }
-    } else if (rb.beat?.text) {
-      const audio = audioItems.find((a) => a.id && a.id.includes(beatId));
-      if (audio) {
-        textItems.push({
-          id: `caption_${beatId}`,
-          trackId: "text",
-          trackStart: audio.trackStart,
-          trackEnd: audio.trackEnd,
-          duration: audio.duration,
-          content: rb.beat.text,
-          timings: rb.timings || [],
-          style: "kinetic",
-        });
+  const shouldRenderCaptions = !noCaptions && !timeline.no_captions && !timeline.metadata?.no_captions;
+  if (shouldRenderCaptions) {
+    for (const rb of timeline.metadata?.resolved_beats || []) {
+      const beatId = rb.beat?.id;
+      if (!beatId) continue;
+      const existing = textItems.find((t) => t.id && t.id.includes(beatId));
+      if (existing) {
+        if (!existing.timings && rb.timings && rb.timings.length > 0) {
+          existing.timings = rb.timings;
+        }
+      } else if (rb.beat?.text) {
+        const audio = audioItems.find((a) => a.id && a.id.includes(beatId));
+        if (audio) {
+          textItems.push({
+            id: `caption_${beatId}`,
+            trackId: "text",
+            trackStart: audio.trackStart,
+            trackEnd: audio.trackEnd,
+            duration: audio.duration,
+            content: rb.beat.text,
+            timings: rb.timings || [],
+            style: "kinetic",
+          });
+        }
       }
     }
+  } else {
+    // Strip any auto-generated captions if no-captions requested
+    const filteredTextItems = textItems.filter(
+      (t) => t.style !== "kinetic" && t.style !== "caption" && !t.id?.startsWith("caption_")
+    );
+    textItems.length = 0;
+    textItems.push(...filteredTextItems);
   }
 
   // NOTE: --timeline mode does NOT expand asset_plan.layers (that lives in

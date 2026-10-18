@@ -1,4 +1,5 @@
 import {
+  EngineListResponse,
   JobApprovalRequest,
   JobCreateRequest,
   JobResponse,
@@ -133,6 +134,7 @@ export const api = {
       if (payload.single_pass_llm !== undefined) formData.append("single_pass_llm", String(payload.single_pass_llm));
       if (payload.voice) formData.append("voice", payload.voice);
       if (payload.voice_prompt) formData.append("voice_prompt", payload.voice_prompt);
+      if (payload.engine) formData.append("engine", payload.engine);
       formData.append("voice_type", payload.voice_type || "custom");
       formData.append("tts_provider", payload.tts_provider || "custom");
       formData.append("audio_file", file);
@@ -220,17 +222,36 @@ export const api = {
   },
 
   /**
+   * Fetch available video rendering engines supported by backend
+   */
+  async getEngines(): Promise<EngineListResponse> {
+    try {
+      return await request<EngineListResponse>("/jobs/engines/list");
+    } catch {
+      return {
+        engines: [
+          { name: "remotion", description: "Full React documentary motion graphics & rich charts", is_default: true },
+          { name: "hyperframes", description: "Declarative HTML5/GSAP canvas, zero npm requirements", is_default: false },
+          { name: "native_fast", description: "Pure FFmpeg filtergraphs, ultra-fast headless render", is_default: false },
+        ],
+        default: "remotion",
+      };
+    }
+  },
+
+  /**
    * Render timeline to standalone MP4 via async background worker
    */
   async renderVideo(
     jobId: string,
     payload: { timeline?: TimelineJSON },
-    params?: { width?: number; height?: number; fps?: number }
+    params?: { width?: number; height?: number; fps?: number; engine?: string }
   ): Promise<RenderVideoResponse> {
     const query = new URLSearchParams();
     if (params?.width) query.set("width", params.width.toString());
     if (params?.height) query.set("height", params.height.toString());
     if (params?.fps) query.set("fps", params.fps.toString());
+    if (params?.engine) query.set("engine", params.engine);
 
     const qs = query.toString();
     return request<RenderVideoResponse>(

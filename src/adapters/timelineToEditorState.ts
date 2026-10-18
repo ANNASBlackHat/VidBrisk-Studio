@@ -67,9 +67,12 @@ export interface EditorProjectState {
   tracks: EditorTrack[];
   selectedClipId: string | null;
   transitionStyle?: TransitionStyle;
+  engine?: string;
   metadata?: {
     beat_count?: number;
     footage_candidates?: Record<string, FootageCandidate[]>;
+    render_engine?: string;
+    [key: string]: unknown;
   };
 }
 
@@ -396,6 +399,7 @@ export function timelineToEditorState(
     tracks,
     selectedClipId: videoItems[0]?.id || null,
     transitionStyle: (timeline.metadata as { transition_style?: TransitionStyle })?.transition_style || "none",
+    engine: (timeline.metadata as { render_engine?: string })?.render_engine || "remotion",
     metadata: timeline.metadata,
   };
 }

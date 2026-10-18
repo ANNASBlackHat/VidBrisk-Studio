@@ -220,7 +220,22 @@ export interface TimelineJSON {
       asset_plan?: ResolvedBeatAssetPlan;
     }>;
     transition_style?: TransitionStyle;
+    render_engine?: string;
+    [key: string]: unknown;
   };
+}
+
+export type VideoEngineName = "remotion" | "hyperframes" | "native_fast" | string;
+
+export interface EngineInfo {
+  name: string;
+  description: string;
+  is_default: boolean;
+}
+
+export interface EngineListResponse {
+  engines: EngineInfo[];
+  default: string;
 }
 
 export interface JobCreateRequest {
@@ -228,6 +243,7 @@ export interface JobCreateRequest {
   raw_input?: string;
   script?: string;
   prompt?: string;
+  engine?: VideoEngineName;
   voice_type?: "tts" | "custom" | string;
   voice?: string;
   voice_prompt?: string;
@@ -270,6 +286,7 @@ export interface JobProgress {
   total?: number;
   percent?: number;
   message?: string;
+  render_engine?: string;
 }
 
 export interface JobSummaryResponse {
@@ -277,6 +294,7 @@ export interface JobSummaryResponse {
   title?: string | null;
   stage: JobStage;
   status: JobStatus;
+  engine?: VideoEngineName;
   tts_provider: string;
   aligner_provider: string;
   target_orientation: TargetOrientation;
@@ -293,6 +311,7 @@ export interface JobResponse {
   raw_input: string;
   stage: JobStage;
   status: JobStatus;
+  engine?: VideoEngineName;
   tts_provider: string;
   aligner_provider: string;
   target_orientation: TargetOrientation;

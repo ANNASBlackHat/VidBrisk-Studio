@@ -21,6 +21,7 @@ import {
   Edit2,
   Check,
   X,
+  Cpu,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { JobResponse, STAGE_CONFIGS, TargetOrientation } from "@/lib/types";
@@ -242,6 +243,19 @@ export default function JobProgressPage() {
           }`}>
             {job.tts_provider === "custom" ? "Audio: Custom Upload" : `TTS: ${job.tts_provider}`}
           </div>
+
+          {job.engine && (
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-indigo-950/40 border border-indigo-800/60 text-xs font-mono text-indigo-300">
+              <Cpu className="w-3.5 h-3.5 text-indigo-400" />
+              <span>
+                {job.engine === "native_fast"
+                  ? "Native Fast"
+                  : job.engine === "hyperframes"
+                  ? "HyperFrames"
+                  : "Remotion"}
+              </span>
+            </div>
+          )}
 
           {isDone && (
             <Link

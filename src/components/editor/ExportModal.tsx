@@ -24,6 +24,7 @@ import {
   Package,
   Zap,
   ExternalLink,
+  Cpu,
 } from "lucide-react";
 
 interface ExportModalProps {
@@ -56,6 +57,7 @@ export function ExportModal({
   const [colabError, setColabError] = useState<string | null>(null);
   const [colabWarnings, setColabWarnings] = useState<string[]>([]);
   const [colabSuccess, setColabSuccess] = useState<string | null>(null);
+  const [selectedEngine, setSelectedEngine] = useState<string>(projectState.engine || "remotion");
   
   const eventSourceRef = useRef<EventSource | null>(null);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -91,6 +93,7 @@ export function ExportModal({
         setErrorMessage(null);
         setElapsedSeconds(0);
         setTotalRenderTime(null);
+        setSelectedEngine(projectState.engine || "remotion");
       }
       setColabError(null);
       setColabWarnings([]);
@@ -145,7 +148,7 @@ export function ExportModal({
       await api.renderVideo(
         projectState.jobId,
         { timeline: timelinePayload },
-        { width, height, fps }
+        { width, height, fps, engine: selectedEngine }
       );
 
       // 2. Connect to real-time Server-Sent Events (SSE) stream for live progress
@@ -400,6 +403,38 @@ export function ExportModal({
                         <span className="font-bold text-xs">{rate} FPS</span>
                         <span className="text-[10px] font-mono text-slate-500">
                           {rate === 60 ? "Ultra Smooth" : "Standard Video"}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Render Engine Selector */}
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                    <Cpu className="w-3.5 h-3.5 text-blue-400" />
+                    <span>Rendering Engine</span>
+                  </label>
+
+                  <div className="grid grid-cols-3 gap-2.5">
+                    {[
+                      { id: "remotion", name: "Remotion", tag: "React Engine" },
+                      { id: "hyperframes", name: "HyperFrames", tag: "HTML5 Canvas" },
+                      { id: "native_fast", name: "Native Fast", tag: "Pure FFmpeg" },
+                    ].map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => setSelectedEngine(item.id)}
+                        className={`p-3 rounded-xl border flex flex-col items-center justify-center transition-all ${
+                          selectedEngine === item.id
+                            ? "bg-blue-600/20 border-blue-500 text-blue-200 shadow-md shadow-blue-500/10"
+                            : "bg-slate-950/60 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700"
+                        }`}
+                      >
+                        <span className="font-bold text-xs">{item.name}</span>
+                        <span className="text-[10px] font-mono text-slate-500 mt-0.5">
+                          {item.tag}
                         </span>
                       </button>
                     ))}

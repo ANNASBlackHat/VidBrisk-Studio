@@ -32,9 +32,21 @@ import {
   Pause,
 } from "lucide-react";
 import { api, API_BASE_URL } from "@/lib/api";
-import { JobCreateRequest, TargetOrientation, VoiceProfile } from "@/lib/types";
+import { JobCreateRequest, TargetOrientation, VoiceProfile, VideoEngineName, EngineInfo } from "@/lib/types";
 import { PresetSelector } from "@/components/ui/PresetSelector";
 import { cn, formatDuration, formatFileSize } from "@/lib/utils";
+
+const ENGINE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  remotion: Monitor,
+  hyperframes: Sparkles,
+  native_fast: Zap,
+};
+
+const ENGINE_LABELS: Record<string, { label: string; tag: string }> = {
+  remotion: { label: "Remotion", tag: "Default • React" },
+  hyperframes: { label: "HyperFrames", tag: "HTML5 Canvas" },
+  native_fast: { label: "Native Fast", tag: "Pure FFmpeg" },
+};
 
 const TTS_VOICE_PRESETS = [
   { id: "af_heart", name: "Heart", gender: "Female", accent: "American", desc: "Warm, natural narration" },
@@ -86,8 +98,38 @@ export default function NewVideoPage() {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Engine Selection State (default: remotion)
+  const [engine, setEngine] = useState<VideoEngineName>("remotion");
+  const [availableEngines, setAvailableEngines] = useState<EngineInfo[]>([
+    { name: "remotion", description: "Full React documentary motion graphics & rich charts", is_default: true },
+    { name: "hyperframes", description: "Declarative HTML5/GSAP canvas, zero npm requirements", is_default: false },
+    { name: "native_fast", description: "Pure FFmpeg filtergraphs, ultra-fast headless render", is_default: false },
+  ]);
+
   const wordCount = rawInput.trim() ? rawInput.trim().split(/\s+/).length : 0;
   const charCount = rawInput.length;
+
+  // Load available engines
+  useEffect(() => {
+    let isMounted = true;
+    async function loadEngines() {
+      try {
+        const data = await api.getEngines();
+        if (isMounted && data?.engines && data.engines.length > 0) {
+          setAvailableEngines(data.engines);
+          if (data.default) {
+            setEngine(data.default);
+          }
+        }
+      } catch (err) {
+        console.warn("Could not load engines from backend:", err);
+      }
+    }
+    loadEngines();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -288,6 +330,7 @@ export default function NewVideoPage() {
     const payload: JobCreateRequest = {
       title: title.trim() || undefined,
       raw_input: rawInput.trim() || (audioFile ? `Custom voiceover: ${audioFile.name}` : ""),
+      engine,
       target_orientation: targetOrientation,
       auto_approve: autoApprove,
       tts_provider: voiceSource === "upload" ? "custom" : ttsProvider,
@@ -881,6 +924,57 @@ export default function NewVideoPage() {
               )}
             </div>
           )}
+        </div>
+
+        {/* Render Engine Selector */}
+        <div className="flex flex-col gap-3 p-5 rounded-2xl bg-slate-900/60 border border-slate-800/80">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-semibold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+              <Cpu className="w-3.5 h-3.5 text-blue-400" />
+              <span>Rendering Engine</span>
+            </label>
+            <span className="text-[10px] text-slate-500 font-mono">
+              Pipeline Execution Engine
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {availableEngines.map((eng) => {
+              const isSelected = engine === eng.name;
+              const Icon = ENGINE_ICONS[eng.name] || Cpu;
+              const meta = ENGINE_LABELS[eng.name] || {
+                label: eng.name.toUpperCase(),
+                tag: eng.is_default ? "Default" : "Engine",
+              };
+              return (
+                <button
+                  key={eng.name}
+                  type="button"
+                  onClick={() => setEngine(eng.name)}
+                  className={cn(
+                    "flex flex-col p-3.5 rounded-xl border text-left transition-all relative overflow-hidden group",
+                    isSelected
+                      ? "bg-blue-950/40 border-blue-500 text-white shadow-sm shadow-blue-500/20"
+                      : "bg-slate-950/40 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200"
+                  )}
+                >
+                  <div className="flex items-center justify-between w-full mb-1">
+                    <div className="flex items-center gap-2">
+                      <Icon className={cn("w-4 h-4", isSelected ? "text-blue-400" : "text-slate-500")} />
+                      <span className="text-xs font-semibold text-slate-100">{meta.label}</span>
+                    </div>
+                    {isSelected && (
+                      <div className="w-4 h-4 rounded-full bg-blue-500 flex items-center justify-center text-white">
+                        <Check className="w-2.5 h-2.5 stroke-[3]" />
+                      </div>
+                    )}
+                  </div>
+                  <span className="text-[10px] font-mono text-blue-400/90 mb-1">{meta.tag}</span>
+                  <span className="text-[11px] text-slate-400 leading-snug">{eng.description}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Orientation / Aspect Ratio Picker */}

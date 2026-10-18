@@ -22,6 +22,7 @@ import {
   Edit2,
   Check,
   X,
+  Cpu,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { JobSummaryResponse, TargetOrientation } from "@/lib/types";
@@ -387,6 +388,18 @@ export default function DashboardPage() {
                       <StatusBadge stage={job.stage} status={job.status} size="sm" />
 
                       <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
+                        {job.engine && (
+                          <span className="px-1.5 py-0.5 rounded border font-mono bg-indigo-950/60 text-indigo-300 border-indigo-800/60 flex items-center gap-1">
+                            <Cpu className="w-3 h-3 text-indigo-400" />
+                            <span>
+                              {job.engine === "native_fast"
+                                ? "Native Fast"
+                                : job.engine === "hyperframes"
+                                ? "HyperFrames"
+                                : "Remotion"}
+                            </span>
+                          </span>
+                        )}
                         <span className={`px-1.5 py-0.5 rounded border font-mono ${
                           job.tts_provider === "custom"
                             ? "bg-purple-950/60 text-purple-300 border-purple-800/60"
